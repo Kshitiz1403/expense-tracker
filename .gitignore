@@ -1,3 +1,41 @@
-CLAUDE.md
-.vscode
-.trae
+# Dependencies
+node_modules/
+backend/vendor/
+
+# Build outputs
+backend/build/
+frontend/.next/
+frontend/out/
+frontend/build/
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+backend/data/
+
+# Environment variables
+.env
+.env.local
+.env*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary files
+*.tmp
+.cache/
