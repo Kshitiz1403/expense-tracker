@@ -14,6 +14,7 @@ type Config struct {
 	Redis    RedisConfig
 	SMS      SMSConfig
 	Frontend FrontendConfig
+	LLM      LLMConfig
 }
 
 type ServerConfig struct {
@@ -37,6 +38,12 @@ type RedisConfig struct {
 type SMSConfig struct {
 	WebhookSecret string
 	WebhookID     string
+}
+
+type LLMConfig struct {
+	Provider string // openai, anthropic, etc.
+	APIKey   string
+	Model    string
 }
 
 type FrontendConfig struct {
@@ -68,6 +75,11 @@ func Load() *Config {
 		SMS: SMSConfig{
 			WebhookSecret: getEnv("SMS_GATEWAY_SECRET", ""),
 			WebhookID:     getEnv("SMS_GATEWAY_WEBHOOK_ID", ""),
+		},
+		LLM: LLMConfig{
+			Provider: getEnv("LLM_PROVIDER", "openai"),
+			APIKey:   getEnv("LLM_API_KEY", ""),
+			Model:    getEnv("LLM_MODEL", "gpt-4o-mini"),
 		},
 		Frontend: FrontendConfig{
 			URL: getEnv("FRONTEND_URL", "http://localhost:3001"),
