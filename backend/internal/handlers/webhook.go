@@ -1,11 +1,11 @@
 package handlers
 
 import (
-	"context"
 	"encoding/json"
 	"expense-tracker/internal/models"
 	"expense-tracker/internal/repository"
 	"expense-tracker/internal/services"
+	"expense-tracker/internal/workers"
 	"io"
 	"log"
 	"net/http"
@@ -15,20 +15,23 @@ import (
 )
 
 type WebhookHandler struct {
-	smsRepo   *repository.SMSRepository
-	processor *services.TransactionProcessor
-	webhookID string
+	smsRepo    *repository.SMSRepository
+	processor  *services.TransactionProcessor
+	taskClient *workers.TaskClient
+	webhookID  string
 }
 
 func NewWebhookHandler(
 	smsRepo *repository.SMSRepository,
 	processor *services.TransactionProcessor,
+	taskClient *workers.TaskClient,
 	webhookID string,
 ) *WebhookHandler {
 	return &WebhookHandler{
-		smsRepo:   smsRepo,
-		processor: processor,
-		webhookID: webhookID,
+		smsRepo:    smsRepo,
+		processor:  processor,
+		taskClient: taskClient,
+		webhookID:  webhookID,
 	}
 }
 
@@ -117,13 +120,11 @@ func (h *WebhookHandler) HandleSMSWebhook(c *gin.Context) {
 	log.Printf("SMS webhook received and stored: ID=%s, EventID=%s, From=%s, Message=%s",
 		smsMessage.ID, smsMessage.EventID, smsMessage.PhoneNumber, smsMessage.Message[:min(50, len(smsMessage.Message))])
 
-	// Process SMS asynchronously (in background)
-	go func() {
-		ctx := context.Background()
-		if err := h.processor.ProcessSMS(ctx, smsMessage.ID); err != nil {
-			log.Printf("Error processing SMS %s: %v", smsMessage.ID, err)
-		}
-	}()
+	// Enqueue SMS processing task
+	if err := h.taskClient.EnqueueProcessSMS(smsMessage.ID); err != nil {
+		log.Printf("Error enqueueing SMS processing task: %v", err)
+		// Don't fail the webhook - task will be retried
+	}
 
 	// Return success immediately
 	c.JSON(http.StatusOK, gin.H{

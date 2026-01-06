@@ -9,6 +9,7 @@ import (
 	"expense-tracker/internal/models"
 	"expense-tracker/internal/repository"
 	"expense-tracker/internal/services"
+	"expense-tracker/internal/workers"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/postgres"
@@ -67,8 +68,26 @@ func main() {
 		log.Println("No LLM_API_KEY configured - AI extraction disabled")
 	}
 
+	// Initialize asynq task client
+	taskClient, err := workers.NewTaskClient(cfg.Redis.Addr)
+	if err != nil {
+		log.Fatalf("Failed to create task client: %v", err)
+	}
+	defer taskClient.Close()
+
+	// Initialize asynq worker server
+	workerServer := workers.NewServer(cfg, processor)
+
+	// Start worker in background
+	go func() {
+		if err := workerServer.Start(); err != nil {
+			log.Fatalf("Failed to start worker server: %v", err)
+		}
+	}()
+	defer workerServer.Stop()
+
 	// Initialize handlers
-	webhookHandler := handlers.NewWebhookHandler(smsRepo, processor, cfg.SMS.WebhookID)
+	webhookHandler := handlers.NewWebhookHandler(smsRepo, processor, taskClient, cfg.SMS.WebhookID)
 
 	// Initialize Gin router
 	router := gin.Default()
