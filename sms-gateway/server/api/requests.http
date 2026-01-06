@@ -1,0 +1,236 @@
+@baseUrl={{$dotenv CLOUD__URL}}
+@credentials={{$dotenv CLOUD__CREDENTIALS}}
+@mobileToken={{$dotenv MOBILE__TOKEN}}
+@jwtToken={{$dotenv JWT__TOKEN}}
+@phone={{$dotenv PHONE}}
+
+###
+GET {{baseUrl}}/3rdparty/v1/health HTTP/1.1
+
+###
+GET {{baseUrl}}/3rdparty/v1/health/startup HTTP/1.1
+
+###
+GET {{baseUrl}}/3rdparty/v1/health/ready HTTP/1.1
+
+###
+GET {{baseUrl}}/3rdparty/v1/health/live HTTP/1.1
+
+###
+POST {{baseUrl}}/3rdparty/v1/messages?skipPhoneValidation=false&deviceActiveWithin=240 HTTP/1.1
+Content-Type: application/json
+Authorization: Basic {{credentials}}
+
+{
+    "message": "{{$localDatetime iso8601}}",
+    "ttl": 600,
+    "phoneNumbers": [
+        "{{phone}}"
+    ],
+    "withDeliveryReport": true,
+    "priority": 127,
+    "simNumber": {{$randomInt 1 2}}
+}
+
+###
+POST {{baseUrl}}/3rdparty/v1/messages HTTP/1.1
+Content-Type: application/json
+# Authorization: Basic {{credentials}}
+Authorization: Bearer {{jwtToken}}
+
+{
+    "textMessage": {
+        "text": "{{$localDatetime iso8601}}"
+    },
+    "phoneNumbers": [
+        "{{phone}}"
+    ]
+}
+
+###
+POST {{baseUrl}}/3rdparty/v1/messages HTTP/1.1
+Content-Type: application/json
+Authorization: Basic {{credentials}}
+
+{
+    "dataMessage": {
+        "data": "SGVsbG8gRGF0YSBXb3JsZCE=",
+        "port": 53739
+    },
+    "phoneNumbers": [
+        "{{phone}}"
+    ]
+}
+
+###
+POST {{baseUrl}}/3rdparty/v1/messages HTTP/1.1
+Content-Type: application/json
+Authorization: Basic {{credentials}}
+
+{
+    "message": "$aes-256-cbc/pbkdf2-sha1$i=75000$pb+tpPcF0nabV46wDeDMig==$ucdVkMrRYLQ0LAeoXQsWhrD36I9nnop8rRIh3dNmBhvg7Wc4Cwu3h9Petvp1dN3x",
+    "ttl": 600,
+    "phoneNumbers": [
+        "$aes-256-cbc/pbkdf2-sha1$i=75000$ZWdiSMvGWJo/jixYGk+s+w==$tfP6sEeC4r/ux/JAglincQ=="
+    ],
+    "simNumber": 1,
+    "withDeliveryReport": true,
+    "isEncrypted": true
+}
+
+###
+GET {{baseUrl}}/3rdparty/v1/messages/Fc10ZyTRDVlqPjIm9Jbly HTTP/1.1
+# Authorization: Basic {{credentials}}
+Authorization: Bearer {{jwtToken}}
+
+###
+GET {{baseUrl}}/3rdparty/v1/messages HTTP/1.1
+# Authorization: Basic {{credentials}}
+Authorization: Bearer {{jwtToken}}
+
+###
+GET {{baseUrl}}/3rdparty/v1/messages?from=2025-01-01T00:00:00.000Z&to=2025-12-31T23:59:59Z&state=Pending&deviceId=fL2m4IirEvh9BvTf6TIB0&limit=50&offset=0 HTTP/1.1
+Authorization: Basic {{credentials}}
+
+###
+POST {{baseUrl}}/3rdparty/v1/messages/inbox/export HTTP/1.1
+Authorization: Basic {{credentials}}
+Content-Type: application/json
+
+{
+    "since": "2024-12-01T00:00:00.000Z",
+    "until": "2024-12-31T23:59:59.999Z",
+    "deviceId": "_Py53j9Cj-JAWMqDXQcQF"
+}
+
+###
+GET {{baseUrl}}/3rdparty/v1/devices HTTP/1.1
+# Authorization: Basic {{credentials}}
+Authorization: Bearer {{jwtToken}}
+
+
+###
+DELETE {{baseUrl}}/3rdparty/v1/devices/gF0jEYiaG_x9sI1YFWa7a HTTP/1.1
+Authorization: Basic {{credentials}}
+
+###
+POST {{baseUrl}}/api/upstream/v1/push HTTP/1.1
+Content-Type: application/json
+
+[
+  {
+    "token": "eTxx88nfSla87gZuJcW5mS:APA91bHGxVgSqqRtxwFHD1q9em5Oa6xSP4gO_OZRrqOoP1wjf_7UMfXKsc4uws6rWkqn73jYCc1owyATB1v61mqak4ntpqtmRkNtTey7NQXa0Wz3uQZBWY-Ecbn2rWG2VJRihOzXRId-",
+    "event": "MessagesExportRequested",
+    "data": {
+        "since": "2024-12-01T00:00:00",
+        "until": "2024-12-31T23:59:59"
+    }
+  }
+]
+
+###
+GET {{baseUrl}}/3rdparty/v1/webhooks HTTP/1.1
+Authorization: Basic {{credentials}}
+
+###
+POST {{baseUrl}}/3rdparty/v1/webhooks HTTP/1.1
+Authorization: Basic {{credentials}}
+Content-Type: application/json
+
+{
+    "id": "MYofX8bTd5Bov0wWFZLRP",
+    "url": "https://webhook.site/280a6655-eb68-40b9-b857-af5be37c5303",
+    "event": "sms:received"
+}
+
+###
+DELETE {{baseUrl}}/3rdparty/v1/webhooks/MYofX8bTd5Bov0wWFZLRP HTTP/1.1
+Authorization: Basic {{credentials}}
+
+###
+GET {{baseUrl}}/api/3rdparty/v1/logs HTTP/1.1
+Authorization: Basic {{credentials}}
+
+###
+GET {{baseUrl}}/3rdparty/v1/settings HTTP/1.1
+Authorization: Basic {{credentials}}
+
+###
+PATCH {{baseUrl}}/3rdparty/v1/settings HTTP/1.1
+Authorization: Basic {{credentials}}
+Content-Type: application/json
+
+{
+    "messages": {
+       "send_interval_min": null,
+       "send_interval_max": 1
+    }
+}
+
+###
+PUT {{baseUrl}}/3rdparty/v1/settings HTTP/1.1
+Authorization: Basic {{credentials}}
+Content-Type: application/json
+
+{
+    "encryption": {
+        "passphrase": "{{$guid}}"
+    },
+    "messages": {
+        "send_interval_min": null,
+        "send_interval_max": null,
+        "limit_period": "Disabled",
+        "limit_value": null,
+        "sim_selection_mode": "OSDefault",
+        "log_lifetime_days": null
+    },
+    "ping": {
+        "interval_seconds": null
+    },
+    "logs": {
+        "lifetime_days": 30
+    },
+    "webhooks": {
+        "internet_required": true,
+        "retry_count": 1,
+        "signing_key": "{{$guid}}"
+    }
+}
+
+###
+POST {{baseUrl}}/3rdparty/v1/auth/token HTTP/1.1
+Authorization: Basic {{credentials}}
+Content-Type: application/json
+
+{
+    "ttl": 3600,
+    "scopes": [
+        "messages:send",
+        "messages:read",
+        "devices:list",
+        "devices:write",
+        "webhooks:list",
+        "webhooks:write",
+        "settings:read",
+        "settings:write",
+        "logs:read"
+    ]
+}
+
+###
+DELETE {{baseUrl}}/3rdparty/v1/auth/token/w8pxz0a4Fwa4xgzyCvSeC HTTP/1.1
+Authorization: Basic {{credentials}}
+Content-Type: application/json
+
+###
+GET http://localhost:3000/metrics HTTP/1.1
+
+###
+GET http://localhost:3000/health/startup HTTP/1.1
+
+###
+GET http://localhost:3000/health/ready HTTP/1.1
+
+###
+GET http://localhost:3000/health/live HTTP/1.1
+

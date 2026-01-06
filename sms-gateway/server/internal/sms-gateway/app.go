@@ -1,0 +1,133 @@
+package smsgateway
+
+import (
+	"context"
+	"sync"
+
+	appconfig "github.com/android-sms-gateway/server/internal/config"
+	"github.com/android-sms-gateway/server/internal/sms-gateway/cache"
+	"github.com/android-sms-gateway/server/internal/sms-gateway/handlers"
+	"github.com/android-sms-gateway/server/internal/sms-gateway/jwt"
+	"github.com/android-sms-gateway/server/internal/sms-gateway/modules/auth"
+	appdb "github.com/android-sms-gateway/server/internal/sms-gateway/modules/db"
+	"github.com/android-sms-gateway/server/internal/sms-gateway/modules/devices"
+	"github.com/android-sms-gateway/server/internal/sms-gateway/modules/events"
+	"github.com/android-sms-gateway/server/internal/sms-gateway/modules/messages"
+	"github.com/android-sms-gateway/server/internal/sms-gateway/modules/metrics"
+	"github.com/android-sms-gateway/server/internal/sms-gateway/modules/push"
+	"github.com/android-sms-gateway/server/internal/sms-gateway/modules/settings"
+	"github.com/android-sms-gateway/server/internal/sms-gateway/modules/sse"
+	"github.com/android-sms-gateway/server/internal/sms-gateway/modules/webhooks"
+	"github.com/android-sms-gateway/server/internal/sms-gateway/online"
+	"github.com/android-sms-gateway/server/internal/sms-gateway/openapi"
+	"github.com/android-sms-gateway/server/internal/sms-gateway/otp"
+	"github.com/android-sms-gateway/server/internal/sms-gateway/pubsub"
+	"github.com/android-sms-gateway/server/internal/sms-gateway/users"
+	"github.com/android-sms-gateway/server/pkg/health"
+	"github.com/capcom6/go-infra-fx/cli"
+	"github.com/capcom6/go-infra-fx/db"
+	"github.com/capcom6/go-infra-fx/http"
+	"github.com/capcom6/go-infra-fx/validator"
+	"github.com/go-core-fx/cachefx"
+	"github.com/go-core-fx/logger"
+	"go.uber.org/fx"
+	"go.uber.org/zap"
+)
+
+func Module() fx.Option {
+	return fx.Module(
+		"server",
+		logger.Module(),
+		http.Module,
+		validator.Module,
+		cachefx.Module(),
+
+		appconfig.Module(),
+		appdb.Module(),
+		openapi.Module(),
+		handlers.Module(),
+		users.Module(),
+		auth.Module(),
+		push.Module(),
+		db.Module,
+		cache.Module(),
+		pubsub.Module(),
+		events.Module(),
+		messages.Module(),
+		health.Module(),
+		webhooks.Module(),
+		settings.Module(),
+		devices.Module(),
+		metrics.Module(),
+		sse.Module(),
+		online.Module(),
+		jwt.Module(),
+		otp.Module(),
+	)
+}
+
+func Run() {
+	cli.DefaultCommand = "start" //nolint:reassign //framework specific
+	fx.New(
+		cli.GetModule(),
+		Module(),
+		logger.WithFxDefaultLogger(),
+	).Run()
+}
+
+type StartParams struct {
+	fx.In
+
+	LC     fx.Lifecycle
+	Logger *zap.Logger
+	Shut   fx.Shutdowner
+
+	Server          *http.Server
+	MessagesService *messages.Service
+	PushService     *push.Service
+}
+
+func Start(p StartParams) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	wg := &sync.WaitGroup{}
+	p.LC.Append(fx.Hook{
+		OnStart: func(_ context.Context) error {
+			p.MessagesService.RunBackgroundTasks(ctx, wg)
+
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				p.PushService.Run(ctx)
+			}()
+
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				if err := p.Server.Start(); err != nil {
+					p.Logger.Error("Error starting server", zap.Error(err))
+					_ = p.Shut.Shutdown()
+				}
+			}()
+
+			p.Logger.Info("Service started")
+
+			return nil
+		},
+		OnStop: func(ctx context.Context) error {
+			cancel()
+			_ = p.Server.Stop(ctx)
+			wg.Wait()
+
+			p.Logger.Info("Service stopped")
+
+			return nil
+		},
+	})
+
+	return nil
+}
+
+//nolint:gochecknoinits //backward compatibility
+func init() {
+	cli.Register("start", Start)
+}

@@ -1,0 +1,143 @@
+package settings
+
+import (
+	"fmt"
+
+	"github.com/android-sms-gateway/client-go/smsgateway"
+	"github.com/android-sms-gateway/server/internal/sms-gateway/handlers/base"
+	"github.com/android-sms-gateway/server/internal/sms-gateway/handlers/middlewares/permissions"
+	"github.com/android-sms-gateway/server/internal/sms-gateway/handlers/middlewares/userauth"
+	"github.com/android-sms-gateway/server/internal/sms-gateway/modules/devices"
+	"github.com/android-sms-gateway/server/internal/sms-gateway/modules/settings"
+	"github.com/go-playground/validator/v10"
+	"github.com/gofiber/fiber/v2"
+	"go.uber.org/fx"
+	"go.uber.org/zap"
+)
+
+type thirdPartyControllerParams struct {
+	fx.In
+
+	DevicesSvc  *devices.Service
+	SettingsSvc *settings.Service
+
+	Validator *validator.Validate
+	Logger    *zap.Logger
+}
+
+type ThirdPartyController struct {
+	base.Handler
+
+	devicesSvc  *devices.Service
+	settingsSvc *settings.Service
+}
+
+func NewThirdPartyController(params thirdPartyControllerParams) *ThirdPartyController {
+	return &ThirdPartyController{
+		Handler: base.Handler{
+			Logger:    params.Logger,
+			Validator: params.Validator,
+		},
+		devicesSvc:  params.DevicesSvc,
+		settingsSvc: params.SettingsSvc,
+	}
+}
+
+//	@Summary		Get settings
+//	@Description	Returns settings for a specific user
+//	@Security		ApiAuth
+//	@Security		JWTAuth
+//	@Tags			User, Settings
+//	@Produce		json
+//	@Success		200	{object}	smsgateway.DeviceSettings	"Settings"
+//	@Failure		401	{object}	smsgateway.ErrorResponse	"Unauthorized"
+//	@Failure		403	{object}	smsgateway.ErrorResponse	"Forbidden"
+//	@Failure		500	{object}	smsgateway.ErrorResponse	"Internal server error"
+//	@Router			/3rdparty/v1/settings [get]
+//
+// Get settings.
+func (h *ThirdPartyController) get(userID string, c *fiber.Ctx) error {
+	settings, err := h.settingsSvc.GetSettings(userID, true)
+	if err != nil {
+		return fmt.Errorf("failed to get settings: %w", err)
+	}
+
+	return c.JSON(settings)
+}
+
+//	@Summary		Replace settings
+//	@Description	Replaces settings
+//	@Security		ApiAuth
+//	@Security		JWTAuth
+//	@Tags			User, Settings
+//	@Accept			json
+//	@Produce		json
+//	@Param			request	body		smsgateway.DeviceSettings	true	"Settings"
+//	@Success		200		{object}	object						"Settings updated"
+//	@Failure		400		{object}	smsgateway.ErrorResponse	"Invalid request"
+//	@Failure		401		{object}	smsgateway.ErrorResponse	"Unauthorized"
+//	@Failure		403		{object}	smsgateway.ErrorResponse	"Forbidden"
+//	@Failure		500		{object}	smsgateway.ErrorResponse	"Internal server error"
+//	@Router			/3rdparty/v1/settings [put]
+//
+// Update settings.
+func (h *ThirdPartyController) put(userID string, c *fiber.Ctx) error {
+	if err := h.BodyParserValidator(c, new(smsgateway.DeviceSettings)); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Sprintf("Invalid settings format: %v", err))
+	}
+
+	settings := make(map[string]any)
+
+	if err := c.BodyParser(&settings); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Sprintf("failed to parse request body: %v", err))
+	}
+
+	updated, err := h.settingsSvc.ReplaceSettings(userID, settings)
+
+	if err != nil {
+		return fmt.Errorf("failed to update settings: %w", err)
+	}
+
+	return c.JSON(updated)
+}
+
+//	@Summary		Partially update settings
+//	@Description	Partially updates settings for a specific user
+//	@Security		ApiAuth
+//	@Security		JWTAuth
+//	@Tags			User, Settings
+//	@Accept			json
+//	@Produce		json
+//	@Param			request	body		smsgateway.DeviceSettings	true	"Settings"
+//	@Success		200		{object}	object						"Settings updated"
+//	@Failure		400		{object}	smsgateway.ErrorResponse	"Invalid request"
+//	@Failure		401		{object}	smsgateway.ErrorResponse	"Unauthorized"
+//	@Failure		403		{object}	smsgateway.ErrorResponse	"Forbidden"
+//	@Failure		500		{object}	smsgateway.ErrorResponse	"Internal server error"
+//	@Router			/3rdparty/v1/settings [patch]
+//
+// Partially update settings.
+func (h *ThirdPartyController) patch(userID string, c *fiber.Ctx) error {
+	if err := h.BodyParserValidator(c, new(smsgateway.DeviceSettings)); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Sprintf("Invalid settings format: %v", err))
+	}
+
+	settings := make(map[string]any)
+
+	if err := c.BodyParser(&settings); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Sprintf("failed to parse request body: %v", err))
+	}
+
+	updated, err := h.settingsSvc.UpdateSettings(userID, settings)
+	if err != nil {
+		return fmt.Errorf("failed to update settings: %w", err)
+	}
+
+	return c.JSON(updated)
+}
+
+func (h *ThirdPartyController) Register(app fiber.Router) {
+	app.Get("", permissions.RequireScope(ScopeRead), userauth.WithUserID(h.get))
+	app.Patch("", permissions.RequireScope(ScopeWrite), userauth.WithUserID(h.patch))
+	app.Put("", permissions.RequireScope(ScopeWrite), userauth.WithUserID(h.put))
+}

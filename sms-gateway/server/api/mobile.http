@@ -1,0 +1,82 @@
+@baseUrl={{$dotenv CLOUD__URL}}/mobile/v1
+@mobileToken={{$dotenv MOBILE__TOKEN}}
+@phone={{$dotenv PHONE}}
+@credentials={{$dotenv CLOUD__CREDENTIALS}}
+
+###
+GET {{baseUrl}}/device HTTP/1.1
+Authorization: Bearer {{mobileToken}}
+
+###
+GET {{baseUrl}}/user/code HTTP/1.1
+Authorization: Basic {{credentials}}
+# Authorization: Bearer {{mobileToken}}
+
+###
+POST {{baseUrl}}/device HTTP/1.1
+# Authorization: Bearer 123456789
+# Authorization: Basic {{credentials}}
+# Authorization: Code 065379
+Content-Type: application/json
+
+{
+  "name": "Android Phone"
+}
+
+###
+PATCH {{baseUrl}}/device HTTP/1.1
+Authorization: Bearer {{mobileToken}}
+Content-Type: application/json
+
+{
+  "name": "Android Phone"
+}
+
+
+###
+GET {{baseUrl}}/message HTTP/1.1
+Authorization: Bearer {{mobileToken}}
+
+###
+PATCH {{baseUrl}}/message HTTP/1.1
+Authorization: Bearer {{mobileToken}}
+Content-Type: application/json
+
+[
+  {
+    "id": "NBjsgnVp72pvcdonJm7a5",
+    "state": "Failed",
+    "recipients": [
+      {
+        "phoneNumber": "{{phone}}",
+        "state": "Failed"
+      }
+    ],
+    "states": {
+      "Processed": "2024-05-13T16:49:17.357+07:00",
+      "Failed": "2024-05-13T16:49:17.357+07:00"
+    }
+  }
+]
+
+###
+GET {{baseUrl}}/webhooks HTTP/1.1
+Authorization: Bearer {{mobileToken}}
+
+###
+PATCH {{baseUrl}}/user/password HTTP/1.1
+Authorization: Bearer {{mobileToken}}
+Content-Type: application/json
+
+{
+  "currentPassword": "8f8ijpnuvemq7y",
+  "newPassword": "8f8ijpnuvemq7y"
+}
+
+###
+GET {{baseUrl}}/settings HTTP/1.1
+Authorization: Bearer {{mobileToken}}
+
+###
+GET {{baseUrl}}/events HTTP/1.1
+Authorization: Bearer {{mobileToken}}
