@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/tmc/langchaingo/llms"
@@ -16,10 +17,59 @@ type TransactionData struct {
 	Amount      float64   `json:"amount"`
 	Type        string    `json:"type"` // "income" or "expense"
 	Merchant    string    `json:"merchant"`
-	Date        time.Time `json:"date"`
+	Date        time.Time `json:"-"`    // Parsed from DateStr
+	DateStr     string    `json:"date"` // Raw date from AI
 	Category    string    `json:"category"`
 	Description string    `json:"description"`
 	Confidence  float64   `json:"confidence"` // 0.0 to 1.0
+}
+
+// UnmarshalJSON custom unmarshaler to handle flexible date formats
+func (t *TransactionData) UnmarshalJSON(data []byte) error {
+	type Alias TransactionData
+	aux := &struct {
+		*Alias
+	}{
+		Alias: (*Alias)(t),
+	}
+
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	// Parse date from string - try multiple formats
+	if t.DateStr != "" {
+		parsedDate, err := parseFlexibleDate(t.DateStr)
+		if err != nil {
+			// Default to current date if parsing fails
+			t.Date = time.Now()
+		} else {
+			t.Date = parsedDate
+		}
+	} else {
+		t.Date = time.Now()
+	}
+
+	return nil
+}
+
+// parseFlexibleDate tries to parse date in multiple formats
+func parseFlexibleDate(dateStr string) (time.Time, error) {
+	formats := []string{
+		time.RFC3339,          // "2006-01-02T15:04:05Z07:00"
+		"2006-01-02",          // "2026-01-06"
+		"2006-01-02 15:04:05", // "2026-01-06 14:30:00"
+		"02/01/2006",          // "06/01/2026"
+		"January 2, 2006",     // "January 6, 2026"
+	}
+
+	for _, format := range formats {
+		if t, err := time.Parse(format, dateStr); err == nil {
+			return t, nil
+		}
+	}
+
+	return time.Time{}, fmt.Errorf("unable to parse date: %s", dateStr)
 }
 
 // AIService handles LLM interactions for transaction extraction
@@ -70,10 +120,13 @@ func (s *AIService) ExtractTransaction(ctx context.Context, smsMessage string) (
 		return nil, fmt.Errorf("LLM generation failed: %w", err)
 	}
 
+	// Strip markdown code blocks if present
+	jsonStr := s.stripMarkdown(response)
+
 	// Parse JSON response
 	var txData TransactionData
-	if err := json.Unmarshal([]byte(response), &txData); err != nil {
-		return nil, fmt.Errorf("failed to parse LLM response: %w", err)
+	if err := json.Unmarshal([]byte(jsonStr), &txData); err != nil {
+		return nil, fmt.Errorf("failed to parse LLM response: %w (response: %s)", err, jsonStr)
 	}
 
 	// Validate extracted data
@@ -82,6 +135,31 @@ func (s *AIService) ExtractTransaction(ctx context.Context, smsMessage string) (
 	}
 
 	return &txData, nil
+}
+
+// stripMarkdown removes markdown code block formatting from AI responses
+func (s *AIService) stripMarkdown(text string) string {
+	// Remove ```json ... ``` or ``` ... ``` blocks
+	text = strings.TrimSpace(text)
+
+	// Check for code block markers
+	if strings.HasPrefix(text, "```") {
+		// Find the first newline after opening ```
+		start := strings.Index(text, "\n")
+		if start == -1 {
+			start = 3 // Just ```
+		} else {
+			start++ // Skip the newline
+		}
+
+		// Find the closing ```
+		end := strings.LastIndex(text, "```")
+		if end > start {
+			text = text[start:end]
+		}
+	}
+
+	return strings.TrimSpace(text)
 }
 
 func (s *AIService) buildExtractionPrompt(smsMessage string) string {

@@ -8,6 +8,7 @@ import (
 	"expense-tracker/internal/handlers"
 	"expense-tracker/internal/models"
 	"expense-tracker/internal/repository"
+	"expense-tracker/internal/services"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/postgres"
@@ -41,9 +42,33 @@ func main() {
 
 	// Initialize repositories
 	smsRepo := repository.NewSMSRepository(db)
+	txRepo := repository.NewTransactionRepository(db)
+	catRepo := repository.NewCategoryRepository(db)
 
-	// Initialize handlers (no verification for simplicity)
-	webhookHandler := handlers.NewWebhookHandler(smsRepo, cfg.SMS.WebhookID)
+	// Initialize services
+	smsParser := services.NewSMSParser()
+
+	// Initialize AI service (skip if no API key)
+	var aiService *services.AIService
+	var processor *services.TransactionProcessor
+
+	if cfg.LLM.APIKey != "" {
+		var err error
+		aiService, err = services.NewAIService(cfg.LLM.Provider, cfg.LLM.APIKey, cfg.LLM.Model)
+		if err != nil {
+			log.Printf("Warning: Failed to initialize AI service: %v", err)
+			log.Println("Transactions will be stored without AI extraction")
+		} else {
+			log.Printf("AI service initialized: provider=%s, model=%s", cfg.LLM.Provider, cfg.LLM.Model)
+			// Create transaction processor with 0.9 confidence threshold
+			processor = services.NewTransactionProcessor(smsParser, aiService, txRepo, catRepo, smsRepo, 0.9)
+		}
+	} else {
+		log.Println("No LLM_API_KEY configured - AI extraction disabled")
+	}
+
+	// Initialize handlers
+	webhookHandler := handlers.NewWebhookHandler(smsRepo, processor, cfg.SMS.WebhookID)
 
 	// Initialize Gin router
 	router := gin.Default()

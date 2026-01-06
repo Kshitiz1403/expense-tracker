@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"expense-tracker/internal/models"
 	"expense-tracker/internal/repository"
+	"expense-tracker/internal/services"
 	"io"
 	"log"
 	"net/http"
@@ -14,12 +16,18 @@ import (
 
 type WebhookHandler struct {
 	smsRepo   *repository.SMSRepository
+	processor *services.TransactionProcessor
 	webhookID string
 }
 
-func NewWebhookHandler(smsRepo *repository.SMSRepository, webhookID string) *WebhookHandler {
+func NewWebhookHandler(
+	smsRepo *repository.SMSRepository,
+	processor *services.TransactionProcessor,
+	webhookID string,
+) *WebhookHandler {
 	return &WebhookHandler{
 		smsRepo:   smsRepo,
+		processor: processor,
 		webhookID: webhookID,
 	}
 }
@@ -109,7 +117,13 @@ func (h *WebhookHandler) HandleSMSWebhook(c *gin.Context) {
 	log.Printf("SMS webhook received and stored: ID=%s, EventID=%s, From=%s, Message=%s",
 		smsMessage.ID, smsMessage.EventID, smsMessage.PhoneNumber, smsMessage.Message[:min(50, len(smsMessage.Message))])
 
-	// TODO: Queue for async processing with asynq
+	// Process SMS asynchronously (in background)
+	go func() {
+		ctx := context.Background()
+		if err := h.processor.ProcessSMS(ctx, smsMessage.ID); err != nil {
+			log.Printf("Error processing SMS %s: %v", smsMessage.ID, err)
+		}
+	}()
 
 	// Return success immediately
 	c.JSON(http.StatusOK, gin.H{
