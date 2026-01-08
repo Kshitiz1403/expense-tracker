@@ -5,6 +5,7 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: expense_tracker_db
+    restart: unless-stopped
     environment:
       POSTGRES_DB: expense_tracker_db
       POSTGRES_USER: expense_tracker
@@ -24,6 +25,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: expense_tracker_redis
+    restart: unless-stopped
     volumes:
       - ./data/redis:/data
     healthcheck:
