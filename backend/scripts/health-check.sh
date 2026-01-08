@@ -15,7 +15,7 @@ fi
 
 # Check PostgreSQL
 echo -n "PostgreSQL: "
-if docker exec expense_tracker_db pg_isready -U expense_tracker > /dev/null 2>&1; then
+if docker exec expense_tracker_db pg_isready -U expense_tracker -d expense_tracker_db > /dev/null 2>&1; then
     echo "✅ Healthy"
 else
     echo "❌ Unhealthy"
