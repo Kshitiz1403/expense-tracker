@@ -88,11 +88,28 @@ func main() {
 
 	// Initialize handlers
 	webhookHandler := handlers.NewWebhookHandler(smsRepo, processor, taskClient, cfg.SMS.WebhookID)
+	categoryHandler := handlers.NewCategoryHandler(catRepo)
+	transactionHandler := handlers.NewTransactionHandler(txRepo, catRepo)
 
 	// Initialize Gin router
 	router := gin.Default()
 
-	// Health check endpoint
+	// CORS middleware
+	router.Use(func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", cfg.Frontend.URL)
+		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+
+		c.Next()
+	})
+
+	// Health check
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"status":  "ok",
@@ -100,19 +117,38 @@ func main() {
 		})
 	})
 
-	// API routes group
+	// API routes
 	api := router.Group("/api")
 	{
+		// Ping
 		api.GET("/ping", func(c *gin.Context) {
-			c.JSON(200, gin.H{
-				"message": "pong",
-			})
+			c.JSON(200, gin.H{"message": "pong"})
 		})
 
-		// Webhook routes
+		// Webhooks
 		webhooks := api.Group("/webhooks")
 		{
 			webhooks.POST("/sms", webhookHandler.HandleSMSWebhook)
+		}
+
+		// Categories
+		categories := api.Group("/categories")
+		{
+			categories.GET("", categoryHandler.GetCategories)
+			categories.GET("/:id", categoryHandler.GetCategory)
+			categories.POST("", categoryHandler.CreateCategory)
+		}
+
+		// Transactions
+		transactions := api.Group("/transactions")
+		{
+			transactions.GET("", transactionHandler.GetTransactions)
+			transactions.GET("/review", transactionHandler.GetReviewQueue)
+			transactions.GET("/:id", transactionHandler.GetTransaction)
+			transactions.POST("", transactionHandler.CreateTransaction)
+			transactions.PUT("/:id", transactionHandler.UpdateTransaction)
+			transactions.PUT("/:id/approve", transactionHandler.ApproveTransaction)
+			transactions.DELETE("/:id", transactionHandler.DeleteTransaction)
 		}
 	}
 
