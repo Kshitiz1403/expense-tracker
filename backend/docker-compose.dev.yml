@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: expense_tracker_db
+    environment:
+      POSTGRES_DB: expense_tracker_db
+      POSTGRES_USER: expense_tracker
+      POSTGRES_PASSWORD: expense_tracker_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+      - ./migrations/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U expense_tracker"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for Asynq
+  redis:
+    image: redis:7-alpine
+    container_name: expense_tracker_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./data/redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5

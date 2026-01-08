@@ -1,36 +1,89 @@
 version: '3.8'
 
 services:
+  # PostgreSQL Database
   postgres:
     image: postgres:16-alpine
     container_name: expense_tracker_db
     environment:
+      POSTGRES_DB: expense_tracker_db
       POSTGRES_USER: expense_tracker
       POSTGRES_PASSWORD: expense_tracker_dev
-      POSTGRES_DB: expense_tracker_db
-    ports:
-      - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ./data/postgres:/var/lib/postgresql/data
+      - ./migrations/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U expense_tracker"]
-      interval: 5s
+      interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - expense-tracker-network
 
+  # Redis for Asynq
   redis:
     image: redis:7-alpine
     container_name: expense_tracker_redis
-    ports:
-      - "6379:6379"
     volumes:
-      - redis_data:/data
+      - ./data/redis:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
+      interval: 10s
       timeout: 3s
       retries: 5
+    networks:
+      - expense-tracker-network
 
-volumes:
-  postgres_data:
-  redis_data:
+  # Backend Go Service
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: expense_tracker_backend
+    ports:
+      - "3049:8080"
+    environment:
+      # Server
+      PORT: 8080
+      GIN_MODE: release
+      
+      # Database
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: expense_tracker
+      DB_PASSWORD: expense_tracker_dev
+      DB_NAME: expense_tracker_db
+      
+      # Redis
+      REDIS_ADDR: redis:6379
+      REDIS_PASSWORD: ""
+      
+      # SMS Gateway
+      SMS_GATEWAY_SECRET: ${SMS_GATEWAY_SECRET}
+      SMS_GATEWAY_WEBHOOK_ID: ${SMS_GATEWAY_WEBHOOK_ID}
+      
+      # LLM Provider
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
+      LLM_API_KEY: ${LLM_API_KEY}
+      LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
+      
+      # Frontend
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3001}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - expense-tracker-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  expense-tracker-network:
+    driver: bridge
