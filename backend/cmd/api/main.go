@@ -41,6 +41,11 @@ func main() {
 
 	log.Println("Database migrated successfully")
 
+	// Seed default categories
+	if err := repository.SeedDefaultCategories(db); err != nil {
+		log.Printf("Warning: Failed to seed categories: %v", err)
+	}
+
 	// Initialize repositories
 	smsRepo := repository.NewSMSRepository(db)
 	txRepo := repository.NewTransactionRepository(db)
