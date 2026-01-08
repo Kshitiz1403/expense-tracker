@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -14,44 +14,73 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
+import { api, Category } from "@/lib/api";
 
 interface AddTransactionDialogProps {
-  trigger?: React.ReactNode;
+  onSuccess?: () => void;
+  children?: React.ReactNode;
 }
 
-export function AddTransactionDialog({ trigger }: AddTransactionDialogProps) {
+export function AddTransactionDialog({ onSuccess, children }: AddTransactionDialogProps) {
   const [open, setOpen] = useState(false);
-  const [transactionType, setTransactionType] = useState<"income" | "expense">(
-    "expense"
-  );
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [transactionType, setTransactionType] = useState<"income" | "expense">("expense");
+  const [categories, setCategories] = useState<Category[]>([]);
 
-  // Mock categories
-  const categories = {
-    income: ["Salary", "Freelance", "Investment", "Other Income"],
-    expense: [
-      "Groceries",
-      "Utilities",
-      "Shopping",
-      "Dining",
-      "Transport",
-      "Healthcare",
-      "Entertainment",
-      "Savings",
-    ],
+  // Fetch categories when dialog opens
+  useEffect(() => {
+    if (open) {
+      fetchCategories();
+    }
+  }, [open]);
+
+  const fetchCategories = async () => {
+    try {
+      const data = await api.categories.list();
+      setCategories(data);
+    } catch (err) {
+      console.error("Failed to fetch categories:", err);
+    }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // Handle form submission - will be connected to backend later
-    console.log("Transaction submitted");
-    setOpen(false);
+    setLoading(true);
+    setError(null);
+
+    const formData = new FormData(e.currentTarget);
+    
+    try {
+      await api.transactions.create({
+        amount: parseFloat(formData.get("amount") as string),
+        type: transactionType,
+        description: formData.get("description") as string,
+        transaction_date: formData.get("date") as string,
+        category_id: formData.get("category") as string || undefined,
+        merchant: formData.get("merchant") as string || undefined,
+      });
+
+      setOpen(false);
+      if (onSuccess) {
+        onSuccess();
+      }
+      
+      // Reset form
+      e.currentTarget.reset();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create transaction");
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const filteredCategories = categories.filter((cat) => cat.type === transactionType);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        {trigger || <Button>Add Transaction</Button>}
+        {children || <Button>Add Transaction</Button>}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <form onSubmit={handleSubmit}>
@@ -91,10 +120,11 @@ export function AddTransactionDialog({ trigger }: AddTransactionDialogProps) {
               <Label htmlFor="amount">Amount (₹)</Label>
               <Input
                 id="amount"
+                name="amount"
                 type="number"
                 placeholder="0.00"
                 required
-                min="0"
+                min="0.01"
                 step="0.01"
               />
             </div>
@@ -104,6 +134,7 @@ export function AddTransactionDialog({ trigger }: AddTransactionDialogProps) {
               <Label htmlFor="description">Description</Label>
               <Input
                 id="description"
+                name="description"
                 placeholder="e.g. Grocery shopping at Walmart"
                 required
               />
@@ -112,9 +143,13 @@ export function AddTransactionDialog({ trigger }: AddTransactionDialogProps) {
             {/* Merchant (Optional) */}
             <div className="space-y-2">
               <Label htmlFor="merchant">
-                Merchant <span className="text-muted-foreground">(Optional)</span>
+                Merchant <span className="text-gray-500">(Optional)</span>
               </Label>
-              <Input id="merchant" placeholder="e.g. Walmart" />
+              <Input 
+                id="merchant" 
+                name="merchant"
+                placeholder="e.g. Walmart" 
+              />
             </div>
 
             {/* Category */}
@@ -122,13 +157,13 @@ export function AddTransactionDialog({ trigger }: AddTransactionDialogProps) {
               <Label htmlFor="category">Category</Label>
               <select
                 id="category"
-                required
+                name="category"
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
-                <option value="">Select a category</option>
-                {categories[transactionType].map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
+                <option value="">Select a category (optional)</option>
+                {filteredCategories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.icon} {cat.name}
                   </option>
                 ))}
               </select>
@@ -136,37 +171,21 @@ export function AddTransactionDialog({ trigger }: AddTransactionDialogProps) {
 
             {/* Date */}
             <div className="space-y-2">
-              <Label htmlFor="date">Date</Label>
+              <Label htmlFor="date">Date & Time</Label>
               <Input
                 id="date"
+                name="date"
                 type="datetime-local"
                 required
                 defaultValue={new Date().toISOString().slice(0, 16)}
               />
             </div>
 
-            {/* Tags (Optional) */}
-            <div className="space-y-2">
-              <Label htmlFor="tags">
-                Tags <span className="text-muted-foreground">(Optional)</span>
-              </Label>
-              <Input
-                id="tags"
-                placeholder="e.g. weekly, essential (comma separated)"
-              />
-            </div>
-
-            {/* Notes (Optional) */}
-            <div className="space-y-2">
-              <Label htmlFor="notes">
-                Notes <span className="text-muted-foreground">(Optional)</span>
-              </Label>
-              <Textarea
-                id="notes"
-                placeholder="Any additional notes..."
-                rows={3}
-              />
-            </div>
+            {error && (
+              <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md">
+                {error}
+              </div>
+            )}
           </div>
 
           <DialogFooter>
@@ -174,10 +193,13 @@ export function AddTransactionDialog({ trigger }: AddTransactionDialogProps) {
               type="button"
               variant="outline"
               onClick={() => setOpen(false)}
+              disabled={loading}
             >
               Cancel
             </Button>
-            <Button type="submit">Add Transaction</Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? "Creating..." : "Add Transaction"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

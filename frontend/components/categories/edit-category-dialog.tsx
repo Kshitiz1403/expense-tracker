@@ -13,46 +13,66 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { api } from "@/lib/api";
 
 interface EditCategoryDialogProps {
-  trigger?: React.ReactNode;
-  category?: {
-    id: string;
-    name: string;
-    icon: string;
-    color: string;
-    type: "income" | "expense";
-  };
+  onSuccess?: () => void;
+  children?: React.ReactNode;
 }
 
 export function EditCategoryDialog({
-  trigger,
-  category,
+  onSuccess,
+  children,
 }: EditCategoryDialogProps) {
   const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // Handle form submission - will be connected to backend later
-    console.log("Category updated");
-    setOpen(false);
+    setLoading(true);
+    setError(null);
+
+    const formData = new FormData(e.currentTarget);
+    
+    try {
+      const colorInput = formData.get("color") as string;
+      
+      await api.categories.create({
+        name: formData.get("name") as string,
+        type: formData.get("type") as "income" | "expense",
+        icon: formData.get("icon") as string || undefined,
+        color: colorInput || undefined,
+        monthly_budget: formData.get("budget") 
+          ? parseFloat(formData.get("budget") as string)
+          : undefined,
+      });
+
+      setOpen(false);
+      if (onSuccess) {
+        onSuccess();
+      }
+      
+      // Reset form
+      e.currentTarget.reset();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create category");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        {trigger || <Button variant="outline">Edit Category</Button>}
+        {children || <Button variant="outline">Create Category</Button>}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>
-              {category ? "Edit Category" : "Create Category"}
-            </DialogTitle>
+            <DialogTitle>Create Category</DialogTitle>
             <DialogDescription>
-              {category
-                ? "Update the category details below."
-                : "Create a new category for organizing your transactions."}
+              Create a new category for organizing your transactions.
             </DialogDescription>
           </DialogHeader>
 
@@ -62,8 +82,8 @@ export function EditCategoryDialog({
               <Label htmlFor="name">Category Name</Label>
               <Input
                 id="name"
+                name="name"
                 placeholder="e.g. Groceries"
-                defaultValue={category?.name}
                 required
               />
             </div>
@@ -73,8 +93,9 @@ export function EditCategoryDialog({
               <Label htmlFor="type">Type</Label>
               <select
                 id="type"
+                name="type"
                 required
-                defaultValue={category?.type || "expense"}
+                defaultValue="expense"
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
                 <option value="expense">Expense</option>
@@ -87,56 +108,60 @@ export function EditCategoryDialog({
               <Label htmlFor="icon">Icon (Emoji)</Label>
               <Input
                 id="icon"
+                name="icon"
                 placeholder="🛒"
-                defaultValue={category?.icon}
                 maxLength={2}
-                required
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-gray-500">
                 Choose an emoji to represent this category
               </p>
             </div>
 
             {/* Color */}
             <div className="space-y-2">
-              <Label htmlFor="color">Color</Label>
+              <Label htmlFor="color">Color (Hex Code)</Label>
               <div className="flex gap-2">
                 <Input
                   id="color"
+                  name="color"
                   type="color"
-                  defaultValue={
-                    category?.color.includes("bg-")
-                      ? "#f97316"
-                      : category?.color
-                  }
+                  defaultValue="#F59E0B"
                   className="w-20 h-10"
                 />
                 <Input
-                  id="color-name"
-                  placeholder="or use Tailwind class"
-                  defaultValue={category?.color}
+                  id="color-text"
+                  placeholder="#F59E0B"
+                  defaultValue="#F59E0B"
                   className="flex-1"
+                  disabled
+                  value={
+                    (document.getElementById("color") as HTMLInputElement)?.value || "#F59E0B"
+                  }
                 />
               </div>
-              <p className="text-xs text-muted-foreground">
-                Examples: bg-orange-500, bg-blue-500, bg-purple-500
-              </p>
             </div>
 
-            {/* Spending Limit (Optional for expenses) */}
+            {/* Monthly Budget (Optional) */}
             <div className="space-y-2">
-              <Label htmlFor="limit">
-                Monthly Budget Limit{" "}
-                <span className="text-muted-foreground">(Optional)</span>
+              <Label htmlFor="budget">
+                Monthly Budget{" "}
+                <span className="text-gray-500">(Optional)</span>
               </Label>
               <Input
-                id="limit"
+                id="budget"
+                name="budget"
                 type="number"
-                placeholder="0.00"
+                placeholder="5000.00"
                 min="0"
                 step="0.01"
               />
             </div>
+
+            {error && (
+              <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md">
+                {error}
+              </div>
+            )}
           </div>
 
           <DialogFooter>
@@ -144,11 +169,12 @@ export function EditCategoryDialog({
               type="button"
               variant="outline"
               onClick={() => setOpen(false)}
+              disabled={loading}
             >
               Cancel
             </Button>
-            <Button type="submit">
-              {category ? "Update Category" : "Create Category"}
+            <Button type="submit" disabled={loading}>
+              {loading ? "Creating..." : "Create Category"}
             </Button>
           </DialogFooter>
         </form>
