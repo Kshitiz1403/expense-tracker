@@ -17,7 +17,7 @@ source .env
 
 # Build and start all services
 echo "Building and starting all services..."
-docker-compose up -d --build
+docker compose up -d --build
 
 # Wait for services to be healthy
 echo "Waiting for services to be ready..."
@@ -37,8 +37,8 @@ echo "  - PostgreSQL: localhost:5432"
 echo "  - Redis: localhost:6379"
 echo ""
 echo "To view logs:"
-echo "  docker-compose logs -f backend"
+echo "  docker compose logs -f backend"
 echo ""
 echo "To stop services:"
-echo "  docker-compose down"
+echo "  docker compose down"
 echo "=================================================="

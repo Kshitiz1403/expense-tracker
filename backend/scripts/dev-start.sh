@@ -6,11 +6,11 @@ echo "=================================================="
 
 # Stop any running containers
 echo "Stopping existing containers..."
-docker-compose -f docker-compose.dev.yml down
+docker compose -f docker-compose.dev.yml down
 
 # Start PostgreSQL and Redis only
 echo "Starting PostgreSQL and Redis..."
-docker-compose -f docker-compose.dev.yml up -d
+docker compose -f docker-compose.dev.yml up -d
 
 # Wait for services to be healthy
 echo "Waiting for services to be ready..."
@@ -43,5 +43,5 @@ echo "Run your Go backend with:"
 echo "  go run cmd/api/main.go"
 echo ""
 echo "To stop services:"
-echo "  docker-compose -f docker-compose.dev.yml down"
+echo "  docker compose -f docker-compose.dev.yml down"
 echo "=================================================="

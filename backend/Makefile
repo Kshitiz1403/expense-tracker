@@ -36,21 +36,21 @@ clean:
 # Docker build
 docker-build:
 	@echo "Building Docker image..."
-	@docker-compose build
+	@docker compose build
 
 # Docker up
 docker-up:
 	@echo "Starting Docker containers..."
-	@docker-compose up -d
+	@docker compose up -d
 
 # Docker down
 docker-down:
 	@echo "Stopping Docker containers..."
-	@docker-compose down
+	@docker compose down
 
 # Docker logs
 docker-logs:
-	@docker-compose logs -f backend
+	@docker compose logs -f backend
 
 # Docker rebuild
 docker-rebuild: docker-down docker-build docker-up

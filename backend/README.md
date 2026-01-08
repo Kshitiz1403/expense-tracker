@@ -103,7 +103,7 @@ air
 
 ### Manual Deploy
 ```bash
-docker-compose up -d --build
+docker compose up -d --build
 ```
 
 ### Health Check
@@ -113,12 +113,12 @@ docker-compose up -d --build
 
 ### View Logs
 ```bash
-docker-compose logs -f backend
+docker compose logs -f backend
 ```
 
 ### Stop Services
 ```bash
-docker-compose down
+docker compose down
 ```
 
 ## Database Migrations
