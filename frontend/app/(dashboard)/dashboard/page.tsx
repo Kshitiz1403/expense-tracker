@@ -87,7 +87,7 @@ export default function DashboardHome() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground">
-            Welcome back! Here's your financial overview.
+            Welcome back! Here&apos;s your financial overview.
           </p>
         </div>
         <AddTransactionDialog>
@@ -148,7 +148,7 @@ export default function DashboardHome() {
               {formatCurrency(summaryData.balance)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              This month's net
+              This month&apos;s net
             </p>
           </CardContent>
         </Card>
@@ -248,7 +248,7 @@ export default function DashboardHome() {
         <Card>
           <CardHeader>
             <CardTitle>Category Breakdown</CardTitle>
-            <p className="text-sm text-muted-foreground">This month's spending</p>
+            <p className="text-sm text-muted-foreground">This month&apos;s spending</p>
           </CardHeader>
           <CardContent>
             <div className="flex h-[200px] items-center justify-center text-muted-foreground">
