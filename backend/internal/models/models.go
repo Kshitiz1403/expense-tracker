@@ -73,6 +73,21 @@ type Transaction struct {
 	UpdatedAt             time.Time  `json:"updatedAt"`
 }
 
+type AICall struct {
+	ID            uuid.UUID  `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
+	SMSID         *uuid.UUID `gorm:"type:uuid;index" json:"smsId"`
+	TransactionID *uuid.UUID `gorm:"type:uuid;index" json:"transactionId"`
+	Provider      string     `gorm:"type:varchar(50);not null" json:"provider"`
+	Model         string     `gorm:"type:varchar(100);not null" json:"model"`
+	Prompt        string     `gorm:"type:text;not null" json:"prompt"`
+	RawResponse   string     `gorm:"type:text" json:"rawResponse"`
+	ParsedResult  *string    `gorm:"type:jsonb" json:"parsedResult"`
+	Success       bool       `gorm:"default:false" json:"success"`
+	Error         *string    `gorm:"type:text" json:"error"`
+	DurationMs    int64      `gorm:"not null" json:"durationMs"`
+	CreatedAt     time.Time  `json:"createdAt"`
+}
+
 // BeforeCreate hook to set UUID
 func (d *DataSource) BeforeCreate(tx *gorm.DB) error {
 	if d.ID == uuid.Nil {
@@ -98,6 +113,13 @@ func (s *SMSMessage) BeforeCreate(tx *gorm.DB) error {
 func (t *Transaction) BeforeCreate(tx *gorm.DB) error {
 	if t.ID == uuid.Nil {
 		t.ID = uuid.New()
+	}
+	return nil
+}
+
+func (a *AICall) BeforeCreate(tx *gorm.DB) error {
+	if a.ID == uuid.Nil {
+		a.ID = uuid.New()
 	}
 	return nil
 }

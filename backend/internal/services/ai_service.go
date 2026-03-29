@@ -72,11 +72,18 @@ func parseFlexibleDate(dateStr string) (time.Time, error) {
 	return time.Time{}, fmt.Errorf("unable to parse date: %s", dateStr)
 }
 
+// LLMCallMeta holds raw metadata about an LLM call for audit logging
+type LLMCallMeta struct {
+	Prompt      string
+	RawResponse string
+	DurationMs  int64
+}
+
 // AIService handles LLM interactions for transaction extraction
 type AIService struct {
 	llm      llms.Model
-	model    string
-	provider string
+	Model    string
+	Provider string
 }
 
 // NewAIService creates a new AI service with the specified provider
@@ -105,19 +112,25 @@ func NewAIService(provider, apiKey, model string) (*AIService, error) {
 
 	return &AIService{
 		llm:      llm,
-		model:    model,
-		provider: provider,
+		Model:    model,
+		Provider: provider,
 	}, nil
 }
 
 // ExtractTransaction uses LLM to extract transaction details from SMS
-func (s *AIService) ExtractTransaction(ctx context.Context, smsMessage string) (*TransactionData, error) {
+func (s *AIService) ExtractTransaction(ctx context.Context, smsMessage string) (*TransactionData, *LLMCallMeta, error) {
 	prompt := s.buildExtractionPrompt(smsMessage)
 
 	// Call LLM
+	start := time.Now()
 	response, err := llms.GenerateFromSinglePrompt(ctx, s.llm, prompt)
+	meta := &LLMCallMeta{
+		Prompt:      prompt,
+		RawResponse: response,
+		DurationMs:  time.Since(start).Milliseconds(),
+	}
 	if err != nil {
-		return nil, fmt.Errorf("LLM generation failed: %w", err)
+		return nil, meta, fmt.Errorf("LLM generation failed: %w", err)
 	}
 
 	// Strip markdown code blocks if present
@@ -126,15 +139,15 @@ func (s *AIService) ExtractTransaction(ctx context.Context, smsMessage string) (
 	// Parse JSON response
 	var txData TransactionData
 	if err := json.Unmarshal([]byte(jsonStr), &txData); err != nil {
-		return nil, fmt.Errorf("failed to parse LLM response: %w (response: %s)", err, jsonStr)
+		return nil, meta, fmt.Errorf("failed to parse LLM response: %w (response: %s)", err, jsonStr)
 	}
 
 	// Validate extracted data
 	if err := s.validateTransaction(&txData); err != nil {
-		return nil, fmt.Errorf("invalid transaction data: %w", err)
+		return nil, meta, fmt.Errorf("invalid transaction data: %w", err)
 	}
 
-	return &txData, nil
+	return &txData, meta, nil
 }
 
 // stripMarkdown removes markdown code block formatting from AI responses

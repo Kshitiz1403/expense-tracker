@@ -35,6 +35,7 @@ func main() {
 		&models.Category{},
 		&models.SMSMessage{},
 		&models.Transaction{},
+		&models.AICall{},
 	); err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
@@ -50,6 +51,7 @@ func main() {
 	smsRepo := repository.NewSMSRepository(db)
 	txRepo := repository.NewTransactionRepository(db)
 	catRepo := repository.NewCategoryRepository(db)
+	aiCallRepo := repository.NewAICallRepository(db)
 
 	// Initialize services
 	smsParser := services.NewSMSParser()
@@ -67,7 +69,7 @@ func main() {
 		} else {
 			log.Printf("AI service initialized: provider=%s, model=%s", cfg.LLM.Provider, cfg.LLM.Model)
 			// Create transaction processor with 0.9 confidence threshold
-			processor = services.NewTransactionProcessor(smsParser, aiService, txRepo, catRepo, smsRepo, 0.9)
+			processor = services.NewTransactionProcessor(smsParser, aiService, txRepo, catRepo, smsRepo, aiCallRepo, 0.9)
 		}
 	} else {
 		log.Println("No LLM_API_KEY configured - AI extraction disabled")
