@@ -90,14 +90,12 @@ export default function DashboardHome() {
             Welcome back! Here's your financial overview.
           </p>
         </div>
-        <AddTransactionDialog
-          trigger={
-            <Button>
-              <Receipt className="mr-2 h-4 w-4" />
-              Add Transaction
-            </Button>
-          }
-        />
+        <AddTransactionDialog>
+          <Button>
+            <Receipt className="mr-2 h-4 w-4" />
+            Add Transaction
+          </Button>
+        </AddTransactionDialog>
       </div>
 
       {/* Summary Cards */}
