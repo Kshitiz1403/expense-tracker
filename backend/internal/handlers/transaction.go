@@ -150,6 +150,7 @@ func (h *TransactionHandler) UpdateTransaction(c *gin.Context) {
 		TransactionDate *string    `json:"transaction_date"`
 		CategoryID      *uuid.UUID `json:"category_id"`
 		Merchant        *string    `json:"merchant"`
+		Notes           *string    `json:"notes"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -180,6 +181,9 @@ func (h *TransactionHandler) UpdateTransaction(c *gin.Context) {
 	}
 	if input.Merchant != nil {
 		transaction.Merchant = input.Merchant
+	}
+	if input.Notes != nil {
+		transaction.Notes = input.Notes
 	}
 
 	if err := h.txRepo.Update(transaction); err != nil {
