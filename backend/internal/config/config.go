@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/joho/godotenv"
 )
@@ -15,6 +16,14 @@ type Config struct {
 	SMS      SMSConfig
 	Frontend FrontendConfig
 	LLM      LLMConfig
+	Auth     AuthConfig
+}
+
+type AuthConfig struct {
+	AdminUsername  string
+	AdminPassword  string // bcrypt hash
+	JWTSecret      string
+	JWTExpiryHours int
 }
 
 type ServerConfig struct {
@@ -84,6 +93,12 @@ func Load() *Config {
 		Frontend: FrontendConfig{
 			URL: getEnv("FRONTEND_URL", "http://localhost:3001"),
 		},
+		Auth: AuthConfig{
+			AdminUsername:  getEnv("ADMIN_USERNAME", "admin"),
+			AdminPassword:  getEnv("ADMIN_PASSWORD", ""),
+			JWTSecret:      getEnv("JWT_SECRET", "change-me-in-production"),
+			JWTExpiryHours: getEnvInt("JWT_EXPIRY_HOURS", 168),
+		},
 	}
 }
 
@@ -97,6 +112,15 @@ func (c *DatabaseConfig) DSN() string {
 func getEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
+	}
+	return defaultValue
+}
+
+func getEnvInt(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		if n, err := strconv.Atoi(value); err == nil {
+			return n
+		}
 	}
 	return defaultValue
 }

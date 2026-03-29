@@ -6,6 +6,7 @@ import (
 
 	"expense-tracker/internal/config"
 	"expense-tracker/internal/handlers"
+	"expense-tracker/internal/middleware"
 	"expense-tracker/internal/models"
 	"expense-tracker/internal/repository"
 	"expense-tracker/internal/services"
@@ -94,6 +95,7 @@ func main() {
 	defer workerServer.Stop()
 
 	// Initialize handlers
+	authHandler := handlers.NewAuthHandler(&cfg.Auth)
 	webhookHandler := handlers.NewWebhookHandler(smsRepo, processor, taskClient, cfg.SMS.WebhookID)
 	categoryHandler := handlers.NewCategoryHandler(catRepo)
 	transactionHandler := handlers.NewTransactionHandler(txRepo, catRepo)
@@ -127,36 +129,40 @@ func main() {
 	// API routes
 	api := router.Group("/api")
 	{
-		// Ping
-		api.GET("/ping", func(c *gin.Context) {
-			c.JSON(200, gin.H{"message": "pong"})
-		})
+		// Public: auth
+		api.POST("/auth/login", authHandler.Login)
 
-		// Webhooks
-		webhooks := api.Group("/webhooks")
-		{
-			webhooks.POST("/sms", webhookHandler.HandleSMSWebhook)
-		}
+		// Public: SMS webhook (has its own secret-based verification)
+		api.POST("/webhooks/sms", webhookHandler.HandleSMSWebhook)
 
-		// Categories
-		categories := api.Group("/categories")
+		// Protected routes
+		protected := api.Group("")
+		protected.Use(middleware.JWTAuth(cfg.Auth.JWTSecret))
 		{
-			categories.GET("", categoryHandler.GetCategories)
-			categories.GET("/:id", categoryHandler.GetCategory)
-			categories.POST("", categoryHandler.CreateCategory)
-		}
+			protected.GET("/ping", func(c *gin.Context) {
+				c.JSON(200, gin.H{"message": "pong"})
+			})
 
-		// Transactions
-		transactions := api.Group("/transactions")
-		{
-			transactions.GET("", transactionHandler.GetTransactions)
-			transactions.GET("/export", transactionHandler.ExportTransactions)
-			transactions.GET("/review", transactionHandler.GetReviewQueue)
-			transactions.GET("/:id", transactionHandler.GetTransaction)
-			transactions.POST("", transactionHandler.CreateTransaction)
-			transactions.PUT("/:id", transactionHandler.UpdateTransaction)
-			transactions.PUT("/:id/approve", transactionHandler.ApproveTransaction)
-			transactions.DELETE("/:id", transactionHandler.DeleteTransaction)
+			// Categories
+			categories := protected.Group("/categories")
+			{
+				categories.GET("", categoryHandler.GetCategories)
+				categories.GET("/:id", categoryHandler.GetCategory)
+				categories.POST("", categoryHandler.CreateCategory)
+			}
+
+			// Transactions
+			transactions := protected.Group("/transactions")
+			{
+				transactions.GET("", transactionHandler.GetTransactions)
+				transactions.GET("/export", transactionHandler.ExportTransactions)
+				transactions.GET("/review", transactionHandler.GetReviewQueue)
+				transactions.GET("/:id", transactionHandler.GetTransaction)
+				transactions.POST("", transactionHandler.CreateTransaction)
+				transactions.PUT("/:id", transactionHandler.UpdateTransaction)
+				transactions.PUT("/:id/approve", transactionHandler.ApproveTransaction)
+				transactions.DELETE("/:id", transactionHandler.DeleteTransaction)
+			}
 		}
 	}
 

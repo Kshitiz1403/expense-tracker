@@ -1,6 +1,13 @@
 // API Base URL from environment
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
+// Lazy import to avoid SSR issues
+function getAuthToken(): string | null {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(/(?:^|; )auth_token=([^;]*)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
 // API Client class
 class APIClient {
   private baseUrl: string;
@@ -14,16 +21,30 @@ class APIClient {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...(options.headers as Record<string, string>),
+    };
+
+    const token = getAuthToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const config: RequestInit = {
       ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
+      headers,
     };
 
     const response = await fetch(url, config);
+
+    if (response.status === 401 && !endpoint.includes('/auth/login')) {
+      // Clear token and redirect to login
+      document.cookie = 'auth_token=; path=/; max-age=0; SameSite=Lax';
+      window.location.href = '/login';
+      throw new Error('Unauthorized');
+    }
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({
@@ -34,6 +55,15 @@ class APIClient {
 
     return response.json();
   }
+
+  // Auth API
+  auth = {
+    login: (username: string, password: string) =>
+      this.request<{ token: string }>('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ username, password }),
+      }),
+  };
 
   // Categories API
   categories = {
