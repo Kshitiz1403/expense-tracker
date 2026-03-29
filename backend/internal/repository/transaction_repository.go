@@ -34,7 +34,7 @@ func (r *TransactionRepository) GetByID(id uuid.UUID) (*models.Transaction, erro
 func (r *TransactionRepository) GetAll(limit, offset int) ([]models.Transaction, error) {
 	var transactions []models.Transaction
 	err := r.db.Preload("Category").
-		Order("transaction_date DESC").
+		Order("transaction_date DESC, created_at DESC").
 		Limit(limit).
 		Offset(offset).
 		Find(&transactions).Error
