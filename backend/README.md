@@ -33,6 +33,10 @@ echo "  - Redis: Internal only (not exposed)"cked job queue (Asynq)
 
 3. **Run Backend**
    ```bash
+   # Option 1: With hot reload (recommended for development)
+   air
+
+   # Option 2: Standard run
    go run cmd/api/main.go
    ```
 
