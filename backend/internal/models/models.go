@@ -69,9 +69,10 @@ type Transaction struct {
 	AIMetadata            *string    `gorm:"type:jsonb" json:"aiMetadata"`
 	RequiresReview        bool       `gorm:"default:false;index" json:"requiresReview"`
 	ReviewedAt            *time.Time `json:"reviewedAt"`
-	Notes                 *string    `gorm:"type:text" json:"notes"`
-	CreatedAt             time.Time  `json:"createdAt"`
-	UpdatedAt             time.Time  `json:"updatedAt"`
+	Notes                 *string        `gorm:"type:text" json:"notes"`
+	CreatedAt             time.Time      `json:"createdAt"`
+	UpdatedAt             time.Time      `json:"updatedAt"`
+	DeletedAt             gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 type AICall struct {

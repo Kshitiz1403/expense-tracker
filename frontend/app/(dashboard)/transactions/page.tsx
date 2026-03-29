@@ -11,6 +11,7 @@ import { EditNotesDialog } from "@/components/transactions/edit-notes-dialog";
 import { ExportDialog } from "@/components/transactions/export-dialog";
 import { TransactionFilters } from "@/components/transactions/transaction-filters";
 import { TransactionDetailSheet } from "@/components/transactions/transaction-detail-sheet";
+import { DeleteTransactionDialog } from "@/components/transactions/delete-transaction-dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -219,11 +220,17 @@ export default function TransactionsPage() {
                         )}
                       </td>
                       <td className="py-3 px-4">
-                        <EditNotesDialog
-                          transactionId={tx.id}
-                          currentNotes={tx.notes}
-                          onSuccess={fetchTransactions}
-                        />
+                        <div className="flex items-center gap-1">
+                          <EditNotesDialog
+                            transactionId={tx.id}
+                            currentNotes={tx.notes}
+                            onSuccess={fetchTransactions}
+                          />
+                          <DeleteTransactionDialog
+                            transactionId={tx.id}
+                            onSuccess={fetchTransactions}
+                          />
+                        </div>
                       </td>
                     </tr>
                   ))}
