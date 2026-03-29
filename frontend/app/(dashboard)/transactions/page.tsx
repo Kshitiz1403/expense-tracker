@@ -12,6 +12,7 @@ import { ExportDialog } from "@/components/transactions/export-dialog";
 import { TransactionFilters } from "@/components/transactions/transaction-filters";
 import { TransactionDetailSheet } from "@/components/transactions/transaction-detail-sheet";
 import { DeleteTransactionDialog } from "@/components/transactions/delete-transaction-dialog";
+import { EditCategoryDialog } from "@/components/transactions/edit-category-dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -153,13 +154,7 @@ export default function TransactionsPage() {
                     <tr
                       key={tx.id}
                       className="hover:bg-gray-50 transition-colors cursor-pointer"
-                      onClick={(e) => {
-                        // Don't open sheet when clicking the actions cell
-                        const target = e.target as HTMLElement;
-                        if (!target.closest("td:last-child")) {
-                          setSelectedTransactionId(tx.id);
-                        }
-                      }}
+                      onClick={() => setSelectedTransactionId(tx.id)}
                     >
                       <td className="py-3 px-4 max-w-xs">
                         <div>
@@ -219,11 +214,18 @@ export default function TransactionsPage() {
                           <span className="text-gray-400 text-sm">-</span>
                         )}
                       </td>
-                      <td className="py-3 px-4">
+                      <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-1">
                           <EditNotesDialog
                             transactionId={tx.id}
                             currentNotes={tx.notes}
+                            onSuccess={fetchTransactions}
+                          />
+                          <EditCategoryDialog
+                            transactionId={tx.id}
+                            transactionType={tx.type as "income" | "expense"}
+                            currentCategoryId={tx.categoryId}
+                            currentCategoryName={tx.category?.name}
                             onSuccess={fetchTransactions}
                           />
                           <DeleteTransactionDialog

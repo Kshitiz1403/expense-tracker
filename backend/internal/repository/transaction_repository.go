@@ -64,6 +64,11 @@ func (r *TransactionRepository) GetRequiringReview(limit int) ([]models.Transact
 
 // Update updates a transaction
 func (r *TransactionRepository) Update(tx *models.Transaction) error {
+	// Nil out preloaded associations so GORM uses the FK fields directly
+	// instead of reconciling category_id from the loaded Category struct.
+	tx.Category = nil
+	tx.AISuggestedCategory = nil
+	tx.SourceMessage = nil
 	return r.db.Save(tx).Error
 }
 
