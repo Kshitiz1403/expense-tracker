@@ -71,6 +71,13 @@ services:
       
       # Frontend
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3001}
+
+      # Authentication
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRY_HOURS: ${JWT_EXPIRY_HOURS:-168}
+
     depends_on:
       postgres:
         condition: service_healthy
