@@ -60,6 +60,8 @@ class APIClient {
       if (params?.type) query.set('type', params.type);
       if (params?.source) query.set('source', params.source);
       if (params?.search) query.set('search', params.search);
+      if (params?.dateFrom) query.set('date_from', params.dateFrom);
+      if (params?.dateTo) query.set('date_to', params.dateTo);
 
       const queryString = query.toString();
       return this.request<TransactionListResponse>(
@@ -204,6 +206,8 @@ export interface TransactionListParams {
   type?: 'income' | 'expense';
   source?: 'sms' | 'email' | 'bank_statement' | 'manual';
   search?: string;
+  dateFrom?: string;
+  dateTo?: string;
 }
 
 export interface TransactionListResponse {

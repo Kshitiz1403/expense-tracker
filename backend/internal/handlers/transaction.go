@@ -45,6 +45,24 @@ func (h *TransactionHandler) GetTransactions(c *gin.Context) {
 		Search:     c.Query("search"),
 	}
 
+	if from := c.Query("date_from"); from != "" {
+		t, err := time.Parse("2006-01-02", from)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid date_from format, use YYYY-MM-DD"})
+			return
+		}
+		filter.DateFrom = &t
+	}
+	if to := c.Query("date_to"); to != "" {
+		t, err := time.Parse("2006-01-02", to)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid date_to format, use YYYY-MM-DD"})
+			return
+		}
+		endOfDay := t.Add(24*time.Hour - time.Second)
+		filter.DateTo = &endOfDay
+	}
+
 	transactions, total, err := h.txRepo.GetAllFiltered(filter, limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch transactions"})

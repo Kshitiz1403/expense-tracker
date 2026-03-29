@@ -40,6 +40,8 @@ export default function TransactionsPage() {
           source: activeFilters.source as 'sms' | 'email' | 'bank_statement' | 'manual' | undefined,
           category: activeFilters.category,
           search: search || undefined,
+          dateFrom: activeFilters.dateFrom,
+          dateTo: activeFilters.dateTo,
         });
         setTransactions(response.transactions);
         setError(null);

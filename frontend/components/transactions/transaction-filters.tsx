@@ -10,12 +10,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { api, Category } from "@/lib/api";
 
 export interface ActiveFilters {
   type?: string;
   source?: string;
   category?: string;
+  dateFrom?: string;
+  dateTo?: string;
 }
 
 interface TransactionFiltersProps {
@@ -27,45 +30,61 @@ export function TransactionFilters({ onFilterChange }: TransactionFiltersProps) 
   const [selectedType, setSelectedType] = useState("");
   const [selectedSource, setSelectedSource] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   useEffect(() => {
     api.categories.list().then(setCategories).catch(() => {});
   }, []);
 
-  const notify = (type: string, source: string, category: string) => {
+  const notify = (type: string, source: string, category: string, from: string, to: string) => {
     onFilterChange({
       type: type || undefined,
       source: source || undefined,
       category: category || undefined,
+      dateFrom: from || undefined,
+      dateTo: to || undefined,
     });
   };
 
   const handleTypeChange = (value: string) => {
     const next = value === "_all" ? "" : value;
     setSelectedType(next);
-    notify(next, selectedSource, selectedCategory);
+    notify(next, selectedSource, selectedCategory, dateFrom, dateTo);
   };
 
   const handleSourceChange = (value: string) => {
     const next = value === "_all" ? "" : value;
     setSelectedSource(next);
-    notify(selectedType, next, selectedCategory);
+    notify(selectedType, next, selectedCategory, dateFrom, dateTo);
   };
 
   const handleCategoryChange = (value: string) => {
     const next = value === "_all" ? "" : value;
     setSelectedCategory(next);
-    notify(selectedType, selectedSource, next);
+    notify(selectedType, selectedSource, next, dateFrom, dateTo);
+  };
+
+  const handleDateFromChange = (value: string) => {
+    setDateFrom(value);
+    notify(selectedType, selectedSource, selectedCategory, value, dateTo);
+  };
+
+  const handleDateToChange = (value: string) => {
+    setDateTo(value);
+    notify(selectedType, selectedSource, selectedCategory, dateFrom, value);
   };
 
   const clearFilters = () => {
     setSelectedType("");
     setSelectedSource("");
     setSelectedCategory("");
+    setDateFrom("");
+    setDateTo("");
     onFilterChange({});
   };
 
-  const hasActiveFilters = selectedType || selectedSource || selectedCategory;
+  const hasActiveFilters = selectedType || selectedSource || selectedCategory || dateFrom || dateTo;
 
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -106,6 +125,23 @@ export function TransactionFilters({ onFilterChange }: TransactionFiltersProps) 
           ))}
         </SelectContent>
       </Select>
+
+      <Input
+        type="date"
+        value={dateFrom}
+        onChange={(e) => handleDateFromChange(e.target.value)}
+        className="w-[150px]"
+        placeholder="From"
+        title="From date"
+      />
+      <Input
+        type="date"
+        value={dateTo}
+        onChange={(e) => handleDateToChange(e.target.value)}
+        className="w-[150px]"
+        placeholder="To"
+        title="To date"
+      />
 
       {hasActiveFilters && (
         <Button variant="ghost" size="sm" onClick={clearFilters} className="h-10">
