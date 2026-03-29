@@ -64,6 +64,20 @@ func TestSMSParser_TransactionMessage(t *testing.T) {
 			expectedType:  MessageTypeOther,
 		},
 		{
+			name:          "Federal Bank UPI Sent (no dot after Rs)",
+			message:       "Rs 1.00 sent via UPI on 30-03-2026 at 01:35:22 to Kshitiz Agrawal.Ref:645522862095.Not you? Call 18004251199/SMS BLOCKUPI to 98950 88888 -Federal Bank",
+			phoneNumber:   "JD-FEDBNK-S",
+			shouldBeValid: true,
+			expectedType:  MessageTypeTransaction,
+		},
+		{
+			name:          "Cashback reward credited (strong keyword bypasses promo check)",
+			message:       "Cashback reward of Rs.50 credited to your account for recent purchase",
+			phoneNumber:   "BANK-XYZ",
+			shouldBeValid: true,
+			expectedType:  MessageTypeTransaction,
+		},
+		{
 			name:          "Transaction with Rupee Symbol",
 			message:       "Your account has been debited with ₹1,234 at Amazon. Available balance: ₹50,000",
 			phoneNumber:   "BANK-XYZ",
@@ -99,10 +113,10 @@ func TestSMSParser_EdgeCases(t *testing.T) {
 		}
 	})
 
-	t.Run("Only Amount No Keywords", func(t *testing.T) {
+	t.Run("Only Amount No Keywords (false positive accepted)", func(t *testing.T) {
 		classification := parser.ClassifyMessage("Rs. 500", "TEST")
-		if classification.IsValid {
-			t.Error("Amount alone without transaction keywords should not be valid")
+		if !classification.IsValid {
+			t.Error("Rs. with amount should be treated as potential transaction")
 		}
 	})
 

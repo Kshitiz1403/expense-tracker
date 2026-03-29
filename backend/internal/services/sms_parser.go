@@ -35,7 +35,7 @@ func NewSMSParser() *SMSParser {
 // ClassifyMessage determines if an SMS is a transaction message
 // Returns classification - only transaction messages should be sent to AI
 func (p *SMSParser) ClassifyMessage(message string, phoneNumber string) *SMSClassification {
-	// Check OTP messages first (highest priority to filter out)
+	// 1. OTP check (highest priority)
 	if p.isOTPMessage(message) {
 		return &SMSClassification{
 			Type:        MessageTypeOTP,
@@ -46,18 +46,19 @@ func (p *SMSParser) ClassifyMessage(message string, phoneNumber string) *SMSClas
 		}
 	}
 
-	// Check for transaction keywords
-	if p.isTransactionMessage(message) {
+	// 2. Strong action word + amount → Transaction immediately, skip promo check.
+	//    Prevents "cashback reward credited" from being filtered as promotional.
+	if p.hasStrongTransactionKeyword(message) && p.hasAmountPattern(message) {
 		return &SMSClassification{
 			Type:        MessageTypeTransaction,
 			IsValid:     true,
-			Reason:      "Contains transaction keywords (debited/credited/spent)",
+			Reason:      "Contains strong transaction keyword (debited/credited/upi/etc.)",
 			PhoneNumber: phoneNumber,
 			Message:     message,
 		}
 	}
 
-	// Check promotional messages
+	// 3. Promo check — only reached for currency-only signals like "Rs. 5000 offer"
 	if p.isPromotionalMessage(message) {
 		return &SMSClassification{
 			Type:        MessageTypePromo,
@@ -68,7 +69,18 @@ func (p *SMSParser) ClassifyMessage(message string, phoneNumber string) *SMSClas
 		}
 	}
 
-	// Everything else
+	// 4. Weak currency keywords (Rs., INR, ₹) with amount
+	if p.isTransactionMessage(message) {
+		return &SMSClassification{
+			Type:        MessageTypeTransaction,
+			IsValid:     true,
+			Reason:      "Contains transaction keywords (debited/credited/spent)",
+			PhoneNumber: phoneNumber,
+			Message:     message,
+		}
+	}
+
+	// 5. Everything else
 	return &SMSClassification{
 		Type:        MessageTypeOther,
 		IsValid:     false,
@@ -78,13 +90,45 @@ func (p *SMSParser) ClassifyMessage(message string, phoneNumber string) *SMSClas
 	}
 }
 
+// hasStrongTransactionKeyword checks for unambiguous transaction action words
+func (p *SMSParser) hasStrongTransactionKeyword(message string) bool {
+	strongKeywords := []string{
+		"debited", "credited", "spent", "paid",
+		"withdrawn", "deposit", "transfer", "sent",
+		"upi",
+	}
+	lowerMsg := strings.ToLower(message)
+	for _, kw := range strongKeywords {
+		if strings.Contains(lowerMsg, kw) {
+			return true
+		}
+	}
+	return false
+}
+
+// hasAmountPattern checks for a currency amount in the message
+func (p *SMSParser) hasAmountPattern(message string) bool {
+	amountPatterns := []*regexp.Regexp{
+		regexp.MustCompile(`(?i)Rs\.?\s*\d+`),
+		regexp.MustCompile(`(?i)INR\s*[\d,]+`),
+		regexp.MustCompile(`₹\s*[\d,]+`),
+	}
+	for _, pattern := range amountPatterns {
+		if pattern.MatchString(message) {
+			return true
+		}
+	}
+	return false
+}
+
 // isTransactionMessage checks for common transaction keywords
 func (p *SMSParser) isTransactionMessage(message string) bool {
 	// Simple keyword matching for transaction indicators
 	transactionKeywords := []string{
 		"debited", "credited", "spent", "paid",
-		"withdrawn", "deposit", "transfer",
-		"Rs.", "INR", "₹",
+		"withdrawn", "deposit", "transfer", "sent",
+		"Rs.", "Rs ", "INR", "₹",
+		"upi",
 	}
 
 	lowerMsg := strings.ToLower(message)
@@ -140,11 +184,6 @@ func (p *SMSParser) isOTPMessage(message string) bool {
 
 // isPromotionalMessage checks for promotional/marketing content
 func (p *SMSParser) isPromotionalMessage(message string) bool {
-	// Skip if it has transaction keywords (real transactions might mention offers)
-	if p.isTransactionMessage(message) {
-		return false
-	}
-
 	promoKeywords := []string{
 		"offer", "discount", "cashback", "reward",
 		"click here", "download app", "install",
