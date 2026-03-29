@@ -150,6 +150,7 @@ func main() {
 		transactions := api.Group("/transactions")
 		{
 			transactions.GET("", transactionHandler.GetTransactions)
+			transactions.GET("/export", transactionHandler.ExportTransactions)
 			transactions.GET("/review", transactionHandler.GetReviewQueue)
 			transactions.GET("/:id", transactionHandler.GetTransaction)
 			transactions.POST("", transactionHandler.CreateTransaction)

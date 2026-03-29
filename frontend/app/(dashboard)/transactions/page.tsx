@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import {
-  Download,
   Search,
   Plus,
+  Download,
 } from "lucide-react";
 import { AddTransactionDialog } from "@/components/transactions/add-transaction-dialog";
 import { EditNotesDialog } from "@/components/transactions/edit-notes-dialog";
+import { ExportDialog } from "@/components/transactions/export-dialog";
 import { TransactionFilters } from "@/components/transactions/transaction-filters";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -70,10 +71,12 @@ export default function TransactionsPage() {
           </p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
+          <ExportDialog>
+            <Button variant="outline">
+              <Download className="h-4 w-4 mr-2" />
+              Export
+            </Button>
+          </ExportDialog>
           <AddTransactionDialog onSuccess={fetchTransactions}>
             <Button>
               <Plus className="h-4 w-4 mr-2" />

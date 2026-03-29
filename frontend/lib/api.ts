@@ -95,6 +95,19 @@ class APIClient {
       this.request<Transaction>(`/api/transactions/${id}/approve`, {
         method: 'PUT',
       }),
+
+    export: (params?: ExportTransactionParams): Promise<Blob> => {
+      const query = new URLSearchParams();
+      if (params?.type) query.set('type', params.type);
+      if (params?.source) query.set('source', params.source);
+      if (params?.dateFrom) query.set('date_from', params.dateFrom);
+      if (params?.dateTo) query.set('date_to', params.dateTo);
+      const url = `${this.baseUrl}/api/transactions/export${query.toString() ? `?${query}` : ''}`;
+      return fetch(url).then((r) => {
+        if (!r.ok) throw new Error(`Export failed: ${r.statusText}`);
+        return r.blob();
+      });
+    },
   };
 
   // Health API
@@ -190,4 +203,11 @@ export interface TransactionListResponse {
 export interface ReviewQueueResponse {
   transactions: Transaction[];
   count: number;
+}
+
+export interface ExportTransactionParams {
+  type?: 'income' | 'expense';
+  source?: 'sms' | 'email' | 'bank_statement' | 'manual';
+  dateFrom?: string;
+  dateTo?: string;
 }

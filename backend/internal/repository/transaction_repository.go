@@ -2,10 +2,19 @@ package repository
 
 import (
 	"expense-tracker/internal/models"
+	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
+
+// TransactionFilter holds optional filter criteria for querying transactions
+type TransactionFilter struct {
+	Type     string
+	Source   string
+	DateFrom *time.Time
+	DateTo   *time.Time
+}
 
 type TransactionRepository struct {
 	db *gorm.DB
@@ -61,6 +70,26 @@ func (r *TransactionRepository) Update(tx *models.Transaction) error {
 // Delete deletes a transaction
 func (r *TransactionRepository) Delete(id uuid.UUID) error {
 	return r.db.Delete(&models.Transaction{}, "id = ?", id).Error
+}
+
+// GetFiltered retrieves all transactions matching the given filters (no pagination)
+func (r *TransactionRepository) GetFiltered(f TransactionFilter) ([]models.Transaction, error) {
+	var transactions []models.Transaction
+	q := r.db.Preload("Category").Order("transaction_date DESC, created_at DESC")
+	if f.Type != "" {
+		q = q.Where("type = ?", f.Type)
+	}
+	if f.Source != "" {
+		q = q.Where("source = ?", f.Source)
+	}
+	if f.DateFrom != nil {
+		q = q.Where("transaction_date >= ?", f.DateFrom)
+	}
+	if f.DateTo != nil {
+		q = q.Where("transaction_date <= ?", f.DateTo)
+	}
+	err := q.Find(&transactions).Error
+	return transactions, err
 }
 
 // GetBySourceID retrieves transaction by source (SMS) ID

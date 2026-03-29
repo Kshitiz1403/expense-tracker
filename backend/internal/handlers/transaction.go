@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/csv"
 	"expense-tracker/internal/models"
 	"expense-tracker/internal/repository"
 	"fmt"
@@ -268,6 +269,81 @@ func (h *TransactionHandler) ApproveTransaction(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, transaction)
+}
+
+// ExportTransactions streams a CSV of transactions matching optional filters
+// GET /api/transactions/export?type=expense&source=sms&date_from=2026-01-01&date_to=2026-03-31
+func (h *TransactionHandler) ExportTransactions(c *gin.Context) {
+	filter := repository.TransactionFilter{
+		Type:   c.Query("type"),
+		Source: c.Query("source"),
+	}
+
+	if from := c.Query("date_from"); from != "" {
+		t, err := time.Parse("2006-01-02", from)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid date_from format, use YYYY-MM-DD"})
+			return
+		}
+		filter.DateFrom = &t
+	}
+	if to := c.Query("date_to"); to != "" {
+		t, err := time.Parse("2006-01-02", to)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid date_to format, use YYYY-MM-DD"})
+			return
+		}
+		// Include the full day
+		endOfDay := t.Add(24*time.Hour - time.Second)
+		filter.DateTo = &endOfDay
+	}
+
+	transactions, err := h.txRepo.GetFiltered(filter)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch transactions"})
+		return
+	}
+
+	filename := fmt.Sprintf("transactions_%s.csv", time.Now().Format("20060102"))
+	c.Header("Content-Type", "text/csv")
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
+
+	w := csv.NewWriter(c.Writer)
+	w.Write([]string{"Transaction Date", "Created At", "Description", "Merchant", "Amount", "Type", "Category", "Source", "Notes", "AI Confidence"})
+
+	for _, tx := range transactions {
+		merchant := ""
+		if tx.Merchant != nil {
+			merchant = *tx.Merchant
+		}
+		category := ""
+		if tx.Category != nil {
+			category = tx.Category.Name
+		}
+		notes := ""
+		if tx.Notes != nil {
+			notes = *tx.Notes
+		}
+		confidence := ""
+		if tx.AIConfidence != nil {
+			confidence = fmt.Sprintf("%.0f%%", *tx.AIConfidence*100)
+		}
+
+		w.Write([]string{
+			tx.TransactionDate.Format("2006-01-02"),
+			tx.CreatedAt.Format("2006-01-02 15:04"),
+			tx.Description,
+			merchant,
+			fmt.Sprintf("%.2f", tx.Amount),
+			tx.Type,
+			category,
+			tx.Source,
+			notes,
+			confidence,
+		})
+	}
+
+	w.Flush()
 }
 
 // Helper function to parse transaction date
