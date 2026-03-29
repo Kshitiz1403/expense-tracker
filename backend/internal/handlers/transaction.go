@@ -353,6 +353,7 @@ func parseTransactionDate(dateStr string) (time.Time, error) {
 		time.RFC3339,
 		"2006-01-02",
 		"2006-01-02T15:04:05",
+		"2006-01-02T15:04",
 	}
 
 	for _, format := range formats {
