@@ -107,10 +107,20 @@ func (p *TransactionProcessor) ProcessSMS(ctx context.Context, smsID uuid.UUID) 
 	parsedStr := string(parsedJSON)
 	aiCall.ParsedResult = &parsedStr
 
-	// Find or create category
+	// Find category by AI-suggested name, create it if not found
 	category, err := p.catRepo.GetByName(txData.Category)
 	if err != nil {
 		return fmt.Errorf("failed to fetch category: %w", err)
+	}
+	if category == nil && txData.Category != "" {
+		category = &models.Category{
+			Name: txData.Category,
+			Type: txData.Type,
+		}
+		if err := p.catRepo.Create(category); err != nil {
+			log.Printf("Warning: failed to create category %q: %v", txData.Category, err)
+			category = nil
+		}
 	}
 
 	var categoryID *uuid.UUID
