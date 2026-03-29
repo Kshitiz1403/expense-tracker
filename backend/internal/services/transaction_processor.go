@@ -80,13 +80,13 @@ func (p *TransactionProcessor) ProcessSMS(ctx context.Context, smsID uuid.UUID) 
 
 	// Build AI call record (saved regardless of success/failure)
 	aiCall := &models.AICall{
-		SMSID:      &smsID,
-		Provider:   p.aiService.Provider,
-		Model:      p.aiService.Model,
-		Prompt:     meta.Prompt,
+		SMSID:       &smsID,
+		Provider:    p.aiService.Provider,
+		Model:       p.aiService.Model,
+		Prompt:      meta.Prompt,
 		RawResponse: meta.RawResponse,
-		DurationMs: meta.DurationMs,
-		Success:    err == nil,
+		DurationMs:  meta.DurationMs,
+		Success:     err == nil,
 	}
 
 	if err != nil {
