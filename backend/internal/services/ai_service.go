@@ -14,62 +14,12 @@ import (
 
 // TransactionData represents the structured output from AI extraction
 type TransactionData struct {
-	Amount      float64   `json:"amount"`
-	Type        string    `json:"type"` // "income" or "expense"
-	Merchant    string    `json:"merchant"`
-	Date        time.Time `json:"-"`    // Parsed from DateStr
-	DateStr     string    `json:"date"` // Raw date from AI
-	Category    string    `json:"category"`
-	Description string    `json:"description"`
-	Confidence  float64   `json:"confidence"` // 0.0 to 1.0
-}
-
-// UnmarshalJSON custom unmarshaler to handle flexible date formats
-func (t *TransactionData) UnmarshalJSON(data []byte) error {
-	type Alias TransactionData
-	aux := &struct {
-		*Alias
-	}{
-		Alias: (*Alias)(t),
-	}
-
-	if err := json.Unmarshal(data, &aux); err != nil {
-		return err
-	}
-
-	// Parse date from string - try multiple formats
-	if t.DateStr != "" {
-		parsedDate, err := parseFlexibleDate(t.DateStr)
-		if err != nil {
-			// Default to current date if parsing fails
-			t.Date = time.Now()
-		} else {
-			t.Date = parsedDate
-		}
-	} else {
-		t.Date = time.Now()
-	}
-
-	return nil
-}
-
-// parseFlexibleDate tries to parse date in multiple formats
-func parseFlexibleDate(dateStr string) (time.Time, error) {
-	formats := []string{
-		time.RFC3339,          // "2006-01-02T15:04:05Z07:00"
-		"2006-01-02",          // "2026-01-06"
-		"2006-01-02 15:04:05", // "2026-01-06 14:30:00"
-		"02/01/2006",          // "06/01/2026"
-		"January 2, 2006",     // "January 6, 2026"
-	}
-
-	for _, format := range formats {
-		if t, err := time.Parse(format, dateStr); err == nil {
-			return t, nil
-		}
-	}
-
-	return time.Time{}, fmt.Errorf("unable to parse date: %s", dateStr)
+	Amount      float64 `json:"amount"`
+	Type        string  `json:"type"` // "income" or "expense"
+	Merchant    string  `json:"merchant"`
+	Category    string  `json:"category"`
+	Description string  `json:"description"`
+	Confidence  float64 `json:"confidence"` // 0.0 to 1.0
 }
 
 // LLMCallMeta holds raw metadata about an LLM call for audit logging
@@ -186,7 +136,6 @@ Extract and return a JSON object with these fields:
   "amount": (number) transaction amount,
   "type": (string) either "income" or "expense",
   "merchant": (string) merchant or source name,
-  "date": (string) transaction date in ISO 8601 format (if not found, use current date),
   "category": (string) suggested category (e.g., "Dining", "Groceries", "Transport", "Salary"),
   "description": (string) brief description,
   "confidence": (number) your confidence level from 0.0 to 1.0

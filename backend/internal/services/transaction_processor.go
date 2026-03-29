@@ -136,7 +136,7 @@ func (p *TransactionProcessor) ProcessSMS(ctx context.Context, smsID uuid.UUID) 
 		Description:           txData.Description,
 		Amount:                txData.Amount,
 		Type:                  txData.Type,
-		TransactionDate:       txData.Date,
+		TransactionDate:       sms.ReceivedAt,
 		CategoryID:            categoryID,
 		Merchant:              &txData.Merchant,
 		Source:                "sms",
