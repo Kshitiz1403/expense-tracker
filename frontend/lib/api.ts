@@ -170,6 +170,7 @@ export interface UpdateTransactionInput {
   transaction_date?: string;
   category_id?: string;
   merchant?: string;
+  notes?: string;
 }
 
 export interface TransactionListParams {

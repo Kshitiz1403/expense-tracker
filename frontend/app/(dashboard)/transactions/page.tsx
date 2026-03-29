@@ -7,6 +7,7 @@ import {
   Plus,
 } from "lucide-react";
 import { AddTransactionDialog } from "@/components/transactions/add-transaction-dialog";
+import { EditNotesDialog } from "@/components/transactions/edit-notes-dialog";
 import { TransactionFilters } from "@/components/transactions/transaction-filters";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -136,17 +137,28 @@ export default function TransactionsPage() {
                     <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">
                       Confidence
                     </th>
+                    <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
                   {transactions.map((tx) => (
                     <tr key={tx.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="py-3 px-4">
+                      <td className="py-3 px-4 max-w-xs">
                         <div>
                           <div className="font-medium text-sm">{tx.description}</div>
                           {tx.merchant && (
                             <div className="text-xs text-gray-500 mt-0.5">
                               {tx.merchant}
+                            </div>
+                          )}
+                          {tx.notes && (
+                            <div
+                              className="text-xs text-gray-400 italic mt-0.5 truncate"
+                              title={tx.notes}
+                            >
+                              {tx.notes}
                             </div>
                           )}
                         </div>
@@ -190,6 +202,13 @@ export default function TransactionsPage() {
                         ) : (
                           <span className="text-gray-400 text-sm">-</span>
                         )}
+                      </td>
+                      <td className="py-3 px-4">
+                        <EditNotesDialog
+                          transactionId={tx.id}
+                          currentNotes={tx.notes}
+                          onSuccess={fetchTransactions}
+                        />
                       </td>
                     </tr>
                   ))}
