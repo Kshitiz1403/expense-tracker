@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Calendar, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -10,126 +10,108 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
+import { api, Category } from "@/lib/api";
+
+export interface ActiveFilters {
+  type?: string;
+  source?: string;
+  category?: string;
+}
 
 interface TransactionFiltersProps {
-  onFilterChange?: (filters: any) => void;
+  onFilterChange: (filters: ActiveFilters) => void;
 }
 
 export function TransactionFilters({ onFilterChange }: TransactionFiltersProps) {
-  const [selectedCategory, setSelectedCategory] = useState<string>("");
-  const [selectedType, setSelectedType] = useState<string>("");
-  const [selectedSource, setSelectedSource] = useState<string>("");
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedType, setSelectedType] = useState("");
+  const [selectedSource, setSelectedSource] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("");
 
-  const clearFilters = () => {
-    setSelectedCategory("");
-    setSelectedType("");
-    setSelectedSource("");
-    onFilterChange?.({});
+  useEffect(() => {
+    api.categories.list().then(setCategories).catch(() => {});
+  }, []);
+
+  const notify = (type: string, source: string, category: string) => {
+    onFilterChange({
+      type: type || undefined,
+      source: source || undefined,
+      category: category || undefined,
+    });
   };
 
-  const hasActiveFilters = selectedCategory || selectedType || selectedSource;
+  const handleTypeChange = (value: string) => {
+    const next = value === "_all" ? "" : value;
+    setSelectedType(next);
+    notify(next, selectedSource, selectedCategory);
+  };
+
+  const handleSourceChange = (value: string) => {
+    const next = value === "_all" ? "" : value;
+    setSelectedSource(next);
+    notify(selectedType, next, selectedCategory);
+  };
+
+  const handleCategoryChange = (value: string) => {
+    const next = value === "_all" ? "" : value;
+    setSelectedCategory(next);
+    notify(selectedType, selectedSource, next);
+  };
+
+  const clearFilters = () => {
+    setSelectedType("");
+    setSelectedSource("");
+    setSelectedCategory("");
+    onFilterChange({});
+  };
+
+  const hasActiveFilters = selectedType || selectedSource || selectedCategory;
 
   return (
     <div className="flex flex-wrap items-center gap-3">
-      {/* Category Filter */}
-      <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-        <SelectTrigger className="w-[180px]">
-          <SelectValue placeholder="Category" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="groceries">Groceries</SelectItem>
-          <SelectItem value="utilities">Utilities</SelectItem>
-          <SelectItem value="shopping">Shopping</SelectItem>
-          <SelectItem value="dining">Dining</SelectItem>
-          <SelectItem value="transport">Transport</SelectItem>
-          <SelectItem value="healthcare">Healthcare</SelectItem>
-          <SelectItem value="entertainment">Entertainment</SelectItem>
-          <SelectItem value="salary">Salary</SelectItem>
-          <SelectItem value="freelance">Freelance</SelectItem>
-        </SelectContent>
-      </Select>
-
-      {/* Type Filter */}
-      <Select value={selectedType} onValueChange={setSelectedType}>
-        <SelectTrigger className="w-[150px]">
+      <Select value={selectedType || "_all"} onValueChange={handleTypeChange}>
+        <SelectTrigger className="w-[140px]">
           <SelectValue placeholder="Type" />
         </SelectTrigger>
         <SelectContent>
+          <SelectItem value="_all">All Types</SelectItem>
           <SelectItem value="income">Income</SelectItem>
           <SelectItem value="expense">Expense</SelectItem>
         </SelectContent>
       </Select>
 
-      {/* Source Filter */}
-      <Select value={selectedSource} onValueChange={setSelectedSource}>
+      <Select value={selectedSource || "_all"} onValueChange={handleSourceChange}>
         <SelectTrigger className="w-[150px]">
           <SelectValue placeholder="Source" />
         </SelectTrigger>
         <SelectContent>
+          <SelectItem value="_all">All Sources</SelectItem>
           <SelectItem value="sms">SMS</SelectItem>
           <SelectItem value="email">Email</SelectItem>
-          <SelectItem value="bank">Bank Statement</SelectItem>
+          <SelectItem value="bank_statement">Bank Statement</SelectItem>
           <SelectItem value="manual">Manual</SelectItem>
         </SelectContent>
       </Select>
 
-      {/* Date Range - Placeholder */}
-      <Button variant="outline">
-        <Calendar className="mr-2 h-4 w-4" />
-        Date Range
-      </Button>
+      <Select value={selectedCategory || "_all"} onValueChange={handleCategoryChange}>
+        <SelectTrigger className="w-[170px]">
+          <SelectValue placeholder="Category" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="_all">All Categories</SelectItem>
+          {categories.map((cat) => (
+            <SelectItem key={cat.id} value={cat.id}>
+              {cat.icon} {cat.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
-      {/* Clear Filters */}
       {hasActiveFilters && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={clearFilters}
-          className="h-10"
-        >
+        <Button variant="ghost" size="sm" onClick={clearFilters} className="h-10">
           <X className="mr-2 h-4 w-4" />
-          Clear Filters
+          Clear
         </Button>
-      )}
-
-      {/* Active Filters Display */}
-      {hasActiveFilters && (
-        <div className="flex items-center gap-2 ml-2">
-          {selectedCategory && (
-            <Badge variant="secondary">
-              Category: {selectedCategory}
-              <button
-                onClick={() => setSelectedCategory("")}
-                className="ml-2 hover:text-destructive"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          )}
-          {selectedType && (
-            <Badge variant="secondary">
-              Type: {selectedType}
-              <button
-                onClick={() => setSelectedType("")}
-                className="ml-2 hover:text-destructive"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          )}
-          {selectedSource && (
-            <Badge variant="secondary">
-              Source: {selectedSource}
-              <button
-                onClick={() => setSelectedSource("")}
-                className="ml-2 hover:text-destructive"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          )}
-        </div>
       )}
     </div>
   );

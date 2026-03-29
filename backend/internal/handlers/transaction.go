@@ -26,23 +26,26 @@ func NewTransactionHandler(txRepo *repository.TransactionRepository, catRepo *re
 }
 
 // GetTransactions returns transactions with filters and pagination
-// GET /api/transactions?page=1&limit=20&category=xxx&type=income&source=sms
+// GET /api/transactions?page=1&limit=20&type=income&source=sms&category=<uuid>&search=keyword
 func (h *TransactionHandler) GetTransactions(c *gin.Context) {
-	// Parse pagination
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
-
 	if page < 1 {
 		page = 1
 	}
 	if limit < 1 || limit > 100 {
 		limit = 20
 	}
-
 	offset := (page - 1) * limit
 
-	// Get transactions
-	transactions, err := h.txRepo.GetAll(limit, offset)
+	filter := repository.TransactionFilter{
+		Type:       c.Query("type"),
+		Source:     c.Query("source"),
+		CategoryID: c.Query("category"),
+		Search:     c.Query("search"),
+	}
+
+	transactions, total, err := h.txRepo.GetAllFiltered(filter, limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch transactions"})
 		return
@@ -50,6 +53,7 @@ func (h *TransactionHandler) GetTransactions(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"transactions": transactions,
+		"total":        total,
 		"page":         page,
 		"limit":        limit,
 	})

@@ -59,6 +59,7 @@ class APIClient {
       if (params?.category) query.set('category', params.category);
       if (params?.type) query.set('type', params.type);
       if (params?.source) query.set('source', params.source);
+      if (params?.search) query.set('search', params.search);
 
       const queryString = query.toString();
       return this.request<TransactionListResponse>(
@@ -202,10 +203,12 @@ export interface TransactionListParams {
   category?: string;
   type?: 'income' | 'expense';
   source?: 'sms' | 'email' | 'bank_statement' | 'manual';
+  search?: string;
 }
 
 export interface TransactionListResponse {
   transactions: Transaction[];
+  total: number;
   page: number;
   limit: number;
 }

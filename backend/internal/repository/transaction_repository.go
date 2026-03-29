@@ -10,10 +10,12 @@ import (
 
 // TransactionFilter holds optional filter criteria for querying transactions
 type TransactionFilter struct {
-	Type     string
-	Source   string
-	DateFrom *time.Time
-	DateTo   *time.Time
+	Type       string
+	Source     string
+	CategoryID string
+	Search     string
+	DateFrom   *time.Time
+	DateTo     *time.Time
 }
 
 type TransactionRepository struct {
@@ -75,6 +77,43 @@ func (r *TransactionRepository) Update(tx *models.Transaction) error {
 // Delete deletes a transaction
 func (r *TransactionRepository) Delete(id uuid.UUID) error {
 	return r.db.Delete(&models.Transaction{}, "id = ?", id).Error
+}
+
+// GetAllFiltered retrieves transactions with filters, pagination, and total count
+func (r *TransactionRepository) GetAllFiltered(f TransactionFilter, limit, offset int) ([]models.Transaction, int64, error) {
+	var transactions []models.Transaction
+	var total int64
+
+	base := r.db.Model(&models.Transaction{})
+	if f.Type != "" {
+		base = base.Where("type = ?", f.Type)
+	}
+	if f.Source != "" {
+		base = base.Where("source = ?", f.Source)
+	}
+	if f.CategoryID != "" {
+		base = base.Where("category_id = ?", f.CategoryID)
+	}
+	if f.Search != "" {
+		like := "%" + f.Search + "%"
+		base = base.Where("description ILIKE ? OR merchant ILIKE ?", like, like)
+	}
+	if f.DateFrom != nil {
+		base = base.Where("transaction_date >= ?", f.DateFrom)
+	}
+	if f.DateTo != nil {
+		base = base.Where("transaction_date <= ?", f.DateTo)
+	}
+
+	if err := base.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	err := base.Preload("Category").
+		Order("transaction_date DESC, created_at DESC").
+		Limit(limit).Offset(offset).
+		Find(&transactions).Error
+	return transactions, total, err
 }
 
 // GetFiltered retrieves all transactions matching the given filters (no pagination)

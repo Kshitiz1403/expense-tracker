@@ -18,30 +18,41 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { api, Transaction } from "@/lib/api";
+import { ActiveFilters } from "@/components/transactions/transaction-filters";
 
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [activeFilters, setActiveFilters] = useState<ActiveFilters>({});
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  // Fetch transactions on mount
   useEffect(() => {
-    fetchTransactions();
-  }, []);
+    const load = async () => {
+      try {
+        setLoading(true);
+        const response = await api.transactions.list({
+          page: 1,
+          limit: 50,
+          type: activeFilters.type as 'income' | 'expense' | undefined,
+          source: activeFilters.source as 'sms' | 'email' | 'bank_statement' | 'manual' | undefined,
+          category: activeFilters.category,
+          search: search || undefined,
+        });
+        setTransactions(response.transactions);
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to fetch transactions");
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [activeFilters, search, refreshKey]);
 
-  const fetchTransactions = async () => {
-    try {
-      setLoading(true);
-      const response = await api.transactions.list({ page: 1, limit: 50 });
-      setTransactions(response.transactions);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch transactions");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const fetchTransactions = () => setRefreshKey((k) => k + 1);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -99,9 +110,11 @@ export default function TransactionsPage() {
               <Input
                 placeholder="Search transactions..."
                 className="pl-10"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <TransactionFilters />
+            <TransactionFilters onFilterChange={setActiveFilters} />
           </div>
         </CardContent>
       </Card>
