@@ -131,7 +131,6 @@ export function EditCategoryDialog({
                 <Input
                   id="color-text"
                   placeholder="#F59E0B"
-                  defaultValue="#F59E0B"
                   className="flex-1"
                   disabled
                   value={
