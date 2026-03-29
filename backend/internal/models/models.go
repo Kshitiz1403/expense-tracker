@@ -51,17 +51,18 @@ type SMSMessage struct {
 }
 
 type Transaction struct {
-	ID                    uuid.UUID  `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
-	Description           string     `gorm:"type:text;not null" json:"description"`
-	Amount                float64    `gorm:"type:decimal(15,2);not null" json:"amount"`
-	Type                  string     `gorm:"type:varchar(50);not null" json:"type"` // income, expense
-	TransactionDate       time.Time  `gorm:"not null;index" json:"transactionDate"`
-	CategoryID            *uuid.UUID `gorm:"type:uuid;index" json:"categoryId"`
-	Category              *Category  `gorm:"foreignKey:CategoryID" json:"category,omitempty"`
-	Merchant              *string    `gorm:"type:varchar(255)" json:"merchant"`
-	Tags                  []string   `gorm:"type:text[]" json:"tags"`
-	Source                string     `gorm:"type:varchar(50);not null;index" json:"source"` // sms, email, bank_statement, manual
-	SourceID              *uuid.UUID `gorm:"type:uuid;index" json:"sourceId"`               // Reference to sms_messages.id
+	ID                    uuid.UUID   `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
+	Description           string      `gorm:"type:text;not null" json:"description"`
+	Amount                float64     `gorm:"type:decimal(15,2);not null" json:"amount"`
+	Type                  string      `gorm:"type:varchar(50);not null" json:"type"` // income, expense
+	TransactionDate       time.Time   `gorm:"not null;index" json:"transactionDate"`
+	CategoryID            *uuid.UUID  `gorm:"type:uuid;index" json:"categoryId"`
+	Category              *Category   `gorm:"foreignKey:CategoryID" json:"category,omitempty"`
+	Merchant              *string     `gorm:"type:varchar(255)" json:"merchant"`
+	Tags                  []string    `gorm:"type:text[]" json:"tags"`
+	Source                string      `gorm:"type:varchar(50);not null;index" json:"source"` // sms, email, bank_statement, manual
+	SourceID              *uuid.UUID  `gorm:"type:uuid;index" json:"sourceId"`               // Reference to sms_messages.id
+	SourceMessage         *SMSMessage `gorm:"foreignKey:SourceID" json:"sourceMessage,omitempty"`
 	AIConfidence          *float64   `gorm:"type:decimal(3,2)" json:"aiConfidence"`         // 0.00 to 1.00
 	AISuggestedCategoryID *uuid.UUID `gorm:"type:uuid" json:"aiSuggestedCategoryId"`
 	AISuggestedCategory   *Category  `gorm:"foreignKey:AISuggestedCategoryID" json:"aiSuggestedCategory,omitempty"`

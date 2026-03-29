@@ -32,7 +32,7 @@ func (r *TransactionRepository) Create(tx *models.Transaction) error {
 // GetByID retrieves a transaction by ID
 func (r *TransactionRepository) GetByID(id uuid.UUID) (*models.Transaction, error) {
 	var tx models.Transaction
-	err := r.db.Preload("Category").Preload("AISuggestedCategory").First(&tx, "id = ?", id).Error
+	err := r.db.Preload("Category").Preload("AISuggestedCategory").Preload("SourceMessage").First(&tx, "id = ?", id).Error
 	if err == gorm.ErrRecordNotFound {
 		return nil, nil
 	}

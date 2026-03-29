@@ -124,6 +124,15 @@ class APIClient {
 export const api = new APIClient();
 
 // Types
+export interface SMSMessage {
+  id: string;
+  deviceId: string;
+  phoneNumber: string;
+  message: string;
+  receivedAt: string;
+  createdAt: string;
+}
+
 export interface Category {
   id: string;
   name: string;
@@ -148,6 +157,7 @@ export interface Transaction {
   tags?: string[];
   source: 'sms' | 'email' | 'bank_statement' | 'manual';
   sourceId?: string;
+  sourceMessage?: SMSMessage;
   aiConfidence?: number;
   aiSuggestedCategoryId?: string;
   aiSuggestedCategory?: Category;

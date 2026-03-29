@@ -10,6 +10,7 @@ import { AddTransactionDialog } from "@/components/transactions/add-transaction-
 import { EditNotesDialog } from "@/components/transactions/edit-notes-dialog";
 import { ExportDialog } from "@/components/transactions/export-dialog";
 import { TransactionFilters } from "@/components/transactions/transaction-filters";
+import { TransactionDetailSheet } from "@/components/transactions/transaction-detail-sheet";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +21,7 @@ export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
 
   // Fetch transactions on mount
   useEffect(() => {
@@ -147,7 +149,17 @@ export default function TransactionsPage() {
                 </thead>
                 <tbody className="divide-y">
                   {transactions.map((tx) => (
-                    <tr key={tx.id} className="hover:bg-gray-50 transition-colors">
+                    <tr
+                      key={tx.id}
+                      className="hover:bg-gray-50 transition-colors cursor-pointer"
+                      onClick={(e) => {
+                        // Don't open sheet when clicking the actions cell
+                        const target = e.target as HTMLElement;
+                        if (!target.closest("td:last-child")) {
+                          setSelectedTransactionId(tx.id);
+                        }
+                      }}
+                    >
                       <td className="py-3 px-4 max-w-xs">
                         <div>
                           <div className="font-medium text-sm">{tx.description}</div>
@@ -221,6 +233,10 @@ export default function TransactionsPage() {
           )}
         </CardContent>
       </Card>
+      <TransactionDetailSheet
+        transactionId={selectedTransactionId}
+        onClose={() => setSelectedTransactionId(null)}
+      />
     </div>
   );
 }
