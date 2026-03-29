@@ -1,0 +1,7 @@
+# .env
+.env.local
+
+# Data directories (bind mounts)
+data/g
+tmp/
+dist/
