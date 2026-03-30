@@ -53,6 +53,7 @@ func main() {
 	txRepo := repository.NewTransactionRepository(db)
 	catRepo := repository.NewCategoryRepository(db)
 	aiCallRepo := repository.NewAICallRepository(db)
+	analyticsRepo := repository.NewAnalyticsRepository(db)
 
 	// Initialize services
 	smsParser := services.NewSMSParser()
@@ -99,6 +100,7 @@ func main() {
 	webhookHandler := handlers.NewWebhookHandler(smsRepo, processor, taskClient, cfg.SMS.WebhookID)
 	categoryHandler := handlers.NewCategoryHandler(catRepo)
 	transactionHandler := handlers.NewTransactionHandler(txRepo, catRepo)
+	analyticsHandler := handlers.NewAnalyticsHandler(analyticsRepo)
 
 	// Initialize Gin router
 	router := gin.Default()
@@ -162,6 +164,12 @@ func main() {
 				transactions.PUT("/:id", transactionHandler.UpdateTransaction)
 				transactions.PUT("/:id/approve", transactionHandler.ApproveTransaction)
 				transactions.DELETE("/:id", transactionHandler.DeleteTransaction)
+			}
+
+			// Analytics
+			analytics := protected.Group("/analytics")
+			{
+				analytics.GET("/summary", analyticsHandler.GetSummary)
 			}
 		}
 	}
