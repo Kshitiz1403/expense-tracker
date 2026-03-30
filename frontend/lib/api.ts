@@ -136,7 +136,10 @@ class APIClient {
       if (params?.dateFrom) query.set('date_from', params.dateFrom);
       if (params?.dateTo) query.set('date_to', params.dateTo);
       const url = `${this.baseUrl}/api/transactions/export${query.toString() ? `?${query}` : ''}`;
-      return fetch(url).then((r) => {
+      const token = getAuthToken();
+      return fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      }).then((r) => {
         if (!r.ok) throw new Error(`Export failed: ${r.statusText}`);
         return r.blob();
       });
