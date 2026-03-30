@@ -5,6 +5,8 @@ import {
   Search,
   Plus,
   Download,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { AddTransactionDialog } from "@/components/transactions/add-transaction-dialog";
 import { EditNotesDialog } from "@/components/transactions/edit-notes-dialog";
@@ -28,14 +30,18 @@ export default function TransactionsPage() {
   const [search, setSearch] = useState("");
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({});
   const [refreshKey, setRefreshKey] = useState(0);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const limit = 25;
+  const totalPages = Math.ceil(total / limit);
 
   useEffect(() => {
     const load = async () => {
       try {
         setLoading(true);
         const response = await api.transactions.list({
-          page: 1,
-          limit: 50,
+          page,
+          limit,
           type: activeFilters.type as 'income' | 'expense' | undefined,
           source: activeFilters.source as 'sms' | 'email' | 'bank_statement' | 'manual' | undefined,
           category: activeFilters.category,
@@ -44,6 +50,7 @@ export default function TransactionsPage() {
           dateTo: activeFilters.dateTo,
         });
         setTransactions(response.transactions);
+        setTotal(response.total);
         setError(null);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to fetch transactions");
@@ -52,9 +59,19 @@ export default function TransactionsPage() {
       }
     };
     load();
-  }, [activeFilters, search, refreshKey]);
+  }, [activeFilters, search, refreshKey, page]);
 
   const fetchTransactions = () => setRefreshKey((k) => k + 1);
+
+  const handleFilterChange = (filters: ActiveFilters) => {
+    setActiveFilters(filters);
+    setPage(1);
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setPage(1);
+  };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -113,10 +130,10 @@ export default function TransactionsPage() {
                 placeholder="Search transactions..."
                 className="pl-10"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
               />
             </div>
-            <TransactionFilters onFilterChange={setActiveFilters} />
+            <TransactionFilters onFilterChange={handleFilterChange} />
           </div>
         </CardContent>
       </Card>
@@ -253,6 +270,53 @@ export default function TransactionsPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+          {!loading && !error && totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t">
+              <p className="text-sm text-gray-500">
+                Showing {(page - 1) * limit + 1}–{Math.min(page * limit, total)} of {total}
+              </p>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => p - 1)}
+                  disabled={page === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+                  .reduce<(number | "...")[]>((acc, p, idx, arr) => {
+                    if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("...");
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((item, idx) =>
+                    item === "..." ? (
+                      <span key={`ellipsis-${idx}`} className="px-2 text-gray-400 text-sm">…</span>
+                    ) : (
+                      <Button
+                        key={item}
+                        variant={item === page ? "default" : "outline"}
+                        size="sm"
+                        className="w-8 h-8 p-0"
+                        onClick={() => setPage(item as number)}
+                      >
+                        {item}
+                      </Button>
+                    )
+                  )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => p + 1)}
+                  disabled={page === totalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
