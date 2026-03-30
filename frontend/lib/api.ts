@@ -146,6 +146,18 @@ class APIClient {
     },
   };
 
+  // Analytics API
+  analytics = {
+    summary: (params?: AnalyticsSummaryParams) => {
+      const query = new URLSearchParams();
+      if (params?.months) query.set('months', params.months.toString());
+      if (params?.dateFrom) query.set('date_from', params.dateFrom);
+      if (params?.dateTo) query.set('date_to', params.dateTo);
+      const qs = query.toString();
+      return this.request<AnalyticsSummary>(`/api/analytics/summary${qs ? `?${qs}` : ''}`);
+    },
+  };
+
   // Health API
   health = {
     check: () =>
@@ -258,6 +270,52 @@ export interface ReviewQueueResponse {
 export interface ExportTransactionParams {
   type?: 'income' | 'expense';
   source?: 'sms' | 'email' | 'bank_statement' | 'manual';
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+export interface MonthlyBreakdown {
+  month: string;
+  monthLabel: string;
+  totalIncome: number;
+  totalExpense: number;
+  netSavings: number;
+}
+
+export interface CategoryBreakdown {
+  categoryId: string;
+  categoryName: string;
+  icon: string;
+  color: string;
+  totalAmount: number;
+  percentage: number;
+  count: number;
+}
+
+export interface MerchantBreakdown {
+  merchant: string;
+  totalAmount: number;
+  count: number;
+}
+
+export interface AnalyticsSummary {
+  dateFrom: string;
+  dateTo: string;
+  totalIncome: number;
+  totalExpense: number;
+  netSavings: number;
+  savingsRate: number;
+  avgMonthlyIncome: number;
+  avgMonthlyExpense: number;
+  topCategoryName: string;
+  topCategoryPercentage: number;
+  monthlyBreakdown: MonthlyBreakdown[];
+  categoryBreakdown: CategoryBreakdown[];
+  topMerchants: MerchantBreakdown[];
+}
+
+export interface AnalyticsSummaryParams {
+  months?: number;
   dateFrom?: string;
   dateTo?: string;
 }

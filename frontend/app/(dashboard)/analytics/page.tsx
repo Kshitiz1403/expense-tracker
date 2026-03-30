@@ -1,324 +1,401 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import {
-  BarChart3,
   TrendingUp,
   TrendingDown,
-  PieChart,
-  Calendar,
   DollarSign,
+  PieChart,
+  BarChart3,
   ShoppingBag,
+  AlertTriangle,
+  CheckCircle,
+  Info,
 } from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { api, AnalyticsSummary } from "@/lib/api";
+
+const FALLBACK_COLORS = [
+  "#f97316", "#3b82f6", "#8b5cf6", "#ec4899",
+  "#14b8a6", "#eab308", "#ef4444", "#22c55e",
+  "#6366f1", "#f59e0b",
+];
+
+const fmt = (n: number) =>
+  new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(n);
 
 export default function AnalyticsPage() {
-  // Mock data for analytics
-  const monthlyTrends = [
-    { month: "Aug", income: 42000, expense: 28000 },
-    { month: "Sep", income: 45000, expense: 31000 },
-    { month: "Oct", income: 43000, expense: 29500 },
-    { month: "Nov", income: 46000, expense: 32000 },
-    { month: "Dec", income: 44000, expense: 30000 },
-    { month: "Jan", income: 45000, expense: 28500 },
-  ];
+  const [data, setData] = useState<AnalyticsSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [months, setMonths] = useState<number>(6);
 
-  const categoryBreakdown = [
-    { name: "Groceries", amount: 12500, percentage: 31, color: "bg-orange-500" },
-    { name: "Shopping", amount: 8500, percentage: 21, color: "bg-purple-500" },
-    { name: "Dining", amount: 6200, percentage: 15, color: "bg-pink-500" },
-    { name: "Transport", amount: 4500, percentage: 11, color: "bg-cyan-500" },
-    { name: "Utilities", amount: 3600, percentage: 9, color: "bg-blue-500" },
-    { name: "Others", amount: 5200, percentage: 13, color: "bg-gray-500" },
-  ];
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoading(true);
+        const result = await api.analytics.summary({ months });
+        setData(result);
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load analytics");
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [months]);
 
-  const topMerchants = [
-    { name: "Walmart", amount: 12500, transactions: 8, trend: 5 },
-    { name: "Amazon", amount: 8500, transactions: 12, trend: -3 },
-    { name: "Gas Station", amount: 4500, transactions: 6, trend: 2 },
-    { name: "Restaurant Chain", amount: 3200, transactions: 4, trend: -1 },
-    { name: "Utility Company", amount: 3600, transactions: 3, trend: 0 },
-  ];
+  const hasData = data && (data.totalIncome > 0 || data.totalExpense > 0);
 
-  const insights = [
-    {
-      type: "warning",
-      title: "High Spending Alert",
-      description: "Your shopping expenses are 25% higher than last month",
-      icon: ShoppingBag,
-    },
-    {
-      type: "success",
-      title: "Savings Goal Met",
-      description: "You've saved ₹16,500 this month - exceeding your goal!",
-      icon: TrendingUp,
-    },
-    {
-      type: "info",
-      title: "Unusual Activity",
-      description: "Groceries spending decreased by 15% compared to average",
-      icon: TrendingDown,
-    },
-  ];
+  const SkeletonCard = () => (
+    <Card>
+      <CardContent className="pt-6">
+        <div className="animate-pulse space-y-2">
+          <div className="h-3 bg-gray-200 rounded w-1/2" />
+          <div className="h-7 bg-gray-200 rounded w-3/4" />
+          <div className="h-3 bg-gray-200 rounded w-1/3" />
+        </div>
+      </CardContent>
+    </Card>
+  );
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
+  const insights = data
+    ? [
+        {
+          type: data.savingsRate > 20 ? "success" : "warning",
+          icon: data.savingsRate > 20 ? CheckCircle : AlertTriangle,
+          title: data.savingsRate > 20 ? "Good savings rate" : "Low savings rate",
+          text: `You saved ${data.savingsRate.toFixed(1)}% of your income over the last ${months} months.`,
+        },
+        {
+          type: "info",
+          icon: Info,
+          title: "Top spending category",
+          text: data.topCategoryName
+            ? `${data.topCategoryName} accounts for ${data.topCategoryPercentage.toFixed(1)}% of your total expenses.`
+            : "No expense categories found for this period.",
+        },
+        {
+          type: data.netSavings >= 0 ? "success" : "warning",
+          icon: data.netSavings >= 0 ? TrendingUp : TrendingDown,
+          title: data.netSavings >= 0 ? "Positive net savings" : "Spending exceeds income",
+          text: `Your net ${data.netSavings >= 0 ? "savings" : "deficit"} this period: ₹${fmt(Math.abs(data.netSavings))}.`,
+        },
+      ]
+    : [];
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <BarChart3 className="h-8 w-8" />
-            Analytics
-          </h1>
-          <p className="text-muted-foreground">
-            Insights and trends from your financial data
-          </p>
+          <h1 className="text-3xl font-bold">Analytics</h1>
+          <p className="text-gray-600 mt-1">Insights into your spending patterns</p>
         </div>
-        <Button variant="outline">
-          <Calendar className="mr-2 h-4 w-4" />
-          Last 6 Months
-        </Button>
+        <Select value={String(months)} onValueChange={(v) => setMonths(Number(v))}>
+          <SelectTrigger className="w-40">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="3">Last 3 Months</SelectItem>
+            <SelectItem value="6">Last 6 Months</SelectItem>
+            <SelectItem value="12">Last 12 Months</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
-      {/* Key Metrics */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Avg. Monthly Income
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-green-600">
-              {formatCurrency(44166)}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-              <TrendingUp className="h-3 w-3 text-green-600" />
-              <span className="text-green-600 font-medium">2.5%</span> vs last
-              period
-            </p>
-          </CardContent>
-        </Card>
+      {error && (
+        <div className="p-4 text-red-500 bg-red-50 rounded-lg">{error}</div>
+      )}
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Avg. Monthly Expense
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-red-600">
-              {formatCurrency(29833)}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-              <TrendingDown className="h-3 w-3 text-green-600" />
-              <span className="text-green-600 font-medium">3.2%</span> decrease
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Savings Rate
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">32.5%</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {formatCurrency(14333)} per month
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Top Category
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">Groceries</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              31% of total spending
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Charts Row */}
-      <div className="grid gap-4 md:grid-cols-2">
-        {/* Income vs Expense Trend */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Income vs Expense Trend</CardTitle>
-            <p className="text-sm text-muted-foreground">Last 6 months</p>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[300px] flex items-end justify-around gap-4 pb-4">
-              {monthlyTrends.map((data, i) => (
-                <div key={i} className="flex-1 flex flex-col items-center gap-2">
-                  <div className="w-full flex flex-col gap-1 items-center">
-                    <div className="w-full flex flex-col items-center gap-1">
-                      <div
-                        className="w-full bg-green-500 rounded-t"
-                        style={{
-                          height: `${(data.income / 50000) * 200}px`,
-                        }}
-                      />
-                      <div
-                        className="w-full bg-red-500 rounded-t opacity-70"
-                        style={{
-                          height: `${(data.expense / 50000) * 200}px`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                  <p className="text-xs text-muted-foreground">{data.month}</p>
-                </div>
-              ))}
-            </div>
-            <div className="flex justify-center gap-6 mt-4">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-green-500 rounded" />
-                <span className="text-sm">Income</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-red-500 rounded opacity-70" />
-                <span className="text-sm">Expense</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Category Breakdown */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Spending by Category</CardTitle>
-            <p className="text-sm text-muted-foreground">This month</p>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {categoryBreakdown.map((category, i) => (
-                <div key={i} className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-3 h-3 rounded ${category.color}`} />
-                      <span className="font-medium">{category.name}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-muted-foreground">
-                        {category.percentage}%
-                      </span>
-                      <span className="font-semibold min-w-[80px] text-right">
-                        {formatCurrency(category.amount)}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="w-full bg-muted rounded-full h-2">
-                    <div
-                      className={`h-2 rounded-full ${category.color}`}
-                      style={{ width: `${category.percentage}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Top Merchants */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Top Merchants</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Your most frequented places
-          </p>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {topMerchants.map((merchant, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between pb-4 border-b last:border-0 last:pb-0"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="bg-primary/10 w-10 h-10 rounded-lg flex items-center justify-center font-bold text-primary">
-                    {i + 1}
-                  </div>
+      {/* Metric Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {loading ? (
+          Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
+        ) : (
+          <>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium">{merchant.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {merchant.transactions} transactions
+                    <p className="text-sm text-gray-600">Avg Monthly Income</p>
+                    <p className="text-2xl font-bold text-green-600">
+                      ₹{fmt(data?.avgMonthlyIncome ?? 0)}
                     </p>
                   </div>
+                  <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center">
+                    <TrendingUp className="h-6 w-6 text-green-600" />
+                  </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  {merchant.trend !== 0 && (
-                    <Badge
-                      variant={merchant.trend > 0 ? "danger" : "success"}
-                      className="text-xs"
-                    >
-                      {merchant.trend > 0 ? (
-                        <TrendingUp className="h-3 w-3 mr-1" />
-                      ) : (
-                        <TrendingDown className="h-3 w-3 mr-1" />
-                      )}
-                      {Math.abs(merchant.trend)}%
-                    </Badge>
-                  )}
-                  <p className="font-bold text-lg min-w-[100px] text-right">
-                    {formatCurrency(merchant.amount)}
-                  </p>
+                <p className="text-xs text-gray-500 mt-2">
+                  Total: ₹{fmt(data?.totalIncome ?? 0)}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Avg Monthly Expense</p>
+                    <p className="text-2xl font-bold text-red-600">
+                      ₹{fmt(data?.avgMonthlyExpense ?? 0)}
+                    </p>
+                  </div>
+                  <div className="h-12 w-12 bg-red-100 rounded-full flex items-center justify-center">
+                    <TrendingDown className="h-6 w-6 text-red-600" />
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  Total: ₹{fmt(data?.totalExpense ?? 0)}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Savings Rate</p>
+                    <p className="text-2xl font-bold">
+                      {(data?.savingsRate ?? 0).toFixed(1)}%
+                    </p>
+                  </div>
+                  <div className="h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center">
+                    <DollarSign className="h-6 w-6 text-blue-600" />
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  Net: ₹{fmt(data?.netSavings ?? 0)}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Top Category</p>
+                    <p className="text-2xl font-bold truncate max-w-[120px]">
+                      {data?.topCategoryName || "—"}
+                    </p>
+                  </div>
+                  <div className="h-12 w-12 bg-purple-100 rounded-full flex items-center justify-center">
+                    <PieChart className="h-6 w-6 text-purple-600" />
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  {(data?.topCategoryPercentage ?? 0).toFixed(1)}% of expenses
+                </p>
+              </CardContent>
+            </Card>
+          </>
+        )}
+      </div>
+
+      {/* Monthly Income vs Expense Chart */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5" />
+            Income vs Expense Trend
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="h-[300px] animate-pulse bg-gray-100 rounded" />
+          ) : !hasData || data.monthlyBreakdown.length === 0 ? (
+            <div className="h-[300px] flex flex-col items-center justify-center text-gray-400 gap-2">
+              <BarChart3 className="h-12 w-12" />
+              <p>No transactions yet for this period</p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={data.monthlyBreakdown} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="monthLabel" tick={{ fontSize: 12 }} />
+                <YAxis
+                  tick={{ fontSize: 12 }}
+                  tickFormatter={(v) =>
+                    `₹${v >= 1000 ? `${(v / 1000).toFixed(0)}K` : v}`
+                  }
+                />
+                <Tooltip
+                  formatter={(value) => [`₹${fmt(Number(value))}`, undefined]}
+                  labelStyle={{ fontWeight: 600 }}
+                />
+                <Legend />
+                <Bar dataKey="totalIncome" name="Income" fill="#22c55e" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="totalExpense" name="Expense" fill="#ef4444" radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </CardContent>
       </Card>
 
-      {/* AI Insights */}
-      <div>
-        <h2 className="text-xl font-semibold mb-4">AI-Powered Insights</h2>
-        <div className="grid gap-4 md:grid-cols-3">
-          {insights.map((insight, i) => {
-            const Icon = insight.icon;
-            const variantMap: Record<string, string> = {
-              warning: "border-amber-200 bg-amber-50",
-              success: "border-green-200 bg-green-50",
-              info: "border-blue-200 bg-blue-50",
-            };
-            const iconColorMap: Record<string, string> = {
-              warning: "text-amber-600",
-              success: "text-green-600",
-              info: "text-blue-600",
-            };
-
-            return (
-              <Card key={i} className={variantMap[insight.type]}>
-                <CardContent className="pt-6">
-                  <div className="flex items-start gap-3">
-                    <Icon className={`h-5 w-5 mt-0.5 ${iconColorMap[insight.type]}`} />
-                    <div>
-                      <h3 className="font-semibold">{insight.title}</h3>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {insight.description}
-                      </p>
-                    </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Category Breakdown */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <PieChart className="h-5 w-5" />
+              Spending by Category
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="animate-pulse space-y-1">
+                    <div className="h-3 bg-gray-200 rounded w-1/2" />
+                    <div className="h-2 bg-gray-100 rounded" />
                   </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                ))}
+              </div>
+            ) : !hasData || data.categoryBreakdown.length === 0 ? (
+              <div className="h-40 flex flex-col items-center justify-center text-gray-400 gap-2">
+                <PieChart className="h-10 w-10" />
+                <p>No expense data for this period</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {data.categoryBreakdown.map((cat, idx) => {
+                  const color = cat.color || FALLBACK_COLORS[idx % FALLBACK_COLORS.length];
+                  return (
+                    <div key={cat.categoryId || cat.categoryName}>
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          {cat.icon && <span>{cat.icon}</span>}
+                          <span className="text-sm font-medium">{cat.categoryName}</span>
+                          <Badge variant="secondary" className="text-xs">
+                            {cat.count} txn{cat.count !== 1 ? "s" : ""}
+                          </Badge>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-sm font-semibold">₹{fmt(cat.totalAmount)}</span>
+                          <span className="text-xs text-gray-500 ml-1">
+                            ({cat.percentage.toFixed(1)}%)
+                          </span>
+                        </div>
+                      </div>
+                      <div className="w-full bg-gray-100 rounded-full h-2">
+                        <div
+                          className="h-2 rounded-full transition-all"
+                          style={{
+                            width: `${Math.min(cat.percentage, 100)}%`,
+                            backgroundColor: color,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Top Merchants */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ShoppingBag className="h-5 w-5" />
+              Top Merchants
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="animate-pulse flex justify-between">
+                    <div className="h-4 bg-gray-200 rounded w-1/3" />
+                    <div className="h-4 bg-gray-200 rounded w-1/4" />
+                  </div>
+                ))}
+              </div>
+            ) : !hasData || data.topMerchants.length === 0 ? (
+              <div className="h-40 flex flex-col items-center justify-center text-gray-400 gap-2">
+                <ShoppingBag className="h-10 w-10" />
+                <p>No merchant data for this period</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {data.topMerchants.map((m, idx) => (
+                  <div key={m.merchant} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-gray-400 w-4">{idx + 1}</span>
+                      <div>
+                        <p className="text-sm font-medium">{m.merchant}</p>
+                        <p className="text-xs text-gray-500">
+                          {m.count} transaction{m.count !== 1 ? "s" : ""}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="font-semibold text-sm">₹{fmt(m.totalAmount)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Insights */}
+      {!loading && hasData && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Insights</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {insights.map((insight, idx) => {
+                const Icon = insight.icon;
+                const colors = {
+                  warning: "border-yellow-200 bg-yellow-50",
+                  success: "border-green-200 bg-green-50",
+                  info: "border-blue-200 bg-blue-50",
+                };
+                const iconColors = {
+                  warning: "text-yellow-600",
+                  success: "text-green-600",
+                  info: "text-blue-600",
+                };
+                return (
+                  <div
+                    key={idx}
+                    className={`rounded-lg border p-4 ${colors[insight.type as keyof typeof colors]}`}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <Icon className={`h-4 w-4 ${iconColors[insight.type as keyof typeof iconColors]}`} />
+                      <span className="text-sm font-medium">{insight.title}</span>
+                    </div>
+                    <p className="text-sm text-gray-600">{insight.text}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
