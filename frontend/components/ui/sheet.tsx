@@ -25,16 +25,29 @@ const SheetOverlay = React.forwardRef<
 ));
 SheetOverlay.displayName = "SheetOverlay";
 
+const sheetSideVariants: Record<string, string> = {
+  right: "right-0 top-0 h-full border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right",
+  left:  "left-0 top-0 h-full border-r data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left",
+  top:   "top-0 left-0 w-full border-b data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top",
+  bottom:"bottom-0 left-0 w-full border-t data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
+};
+
+interface SheetContentProps extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> {
+  side?: "left" | "right" | "top" | "bottom";
+}
+
 const SheetContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+  SheetContentProps
+>(({ className, children, side = "right", ...props }, ref) => (
   <SheetPortal>
     <SheetOverlay />
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed right-0 top-0 z-50 h-full w-full max-w-lg border-l bg-background shadow-xl duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right overflow-y-auto",
+        "fixed z-50 bg-background shadow-xl duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out overflow-y-auto",
+        side === "left" || side === "right" ? "w-full max-w-lg" : "",
+        sheetSideVariants[side],
         className
       )}
       {...props}
