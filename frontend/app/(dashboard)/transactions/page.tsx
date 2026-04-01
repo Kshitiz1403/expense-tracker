@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Search,
@@ -23,7 +23,7 @@ import { Input } from "@/components/ui/input";
 import { api, Transaction } from "@/lib/api";
 import { ActiveFilters } from "@/components/transactions/transaction-filters";
 
-export default function TransactionsPage() {
+function TransactionsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -385,5 +385,13 @@ export default function TransactionsPage() {
         onClose={() => setSelectedTransactionId(null)}
       />
     </div>
+  );
+}
+
+export default function TransactionsPage() {
+  return (
+    <Suspense>
+      <TransactionsPageContent />
+    </Suspense>
   );
 }
