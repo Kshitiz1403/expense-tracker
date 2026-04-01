@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Search,
   Plus,
@@ -23,14 +24,27 @@ import { api, Transaction } from "@/lib/api";
 import { ActiveFilters } from "@/components/transactions/transaction-filters";
 
 export default function TransactionsPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const initialSearch = searchParams.get("search") ?? "";
+  const initialPage = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
+  const initialFilters: ActiveFilters = {
+    type:     searchParams.get("type")     ?? undefined,
+    source:   searchParams.get("source")   ?? undefined,
+    category: searchParams.get("category") ?? undefined,
+    dateFrom: searchParams.get("dateFrom") ?? undefined,
+    dateTo:   searchParams.get("dateTo")   ?? undefined,
+  };
+
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
-  const [activeFilters, setActiveFilters] = useState<ActiveFilters>({});
+  const [search, setSearch] = useState(initialSearch);
+  const [activeFilters, setActiveFilters] = useState<ActiveFilters>(initialFilters);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(initialPage);
   const [total, setTotal] = useState(0);
   const limit = 25;
   const totalPages = Math.ceil(total / limit);
@@ -63,14 +77,59 @@ export default function TransactionsPage() {
 
   const fetchTransactions = () => setRefreshKey((k) => k + 1);
 
+  const isInternalNav = useRef(false);
+
+  const syncURL = useCallback(
+    (nextSearch: string, nextFilters: ActiveFilters, nextPage: number, method: "push" | "replace") => {
+      const params = new URLSearchParams();
+      if (nextSearch)            params.set("search",   nextSearch);
+      if (nextFilters.type)      params.set("type",     nextFilters.type);
+      if (nextFilters.source)    params.set("source",   nextFilters.source);
+      if (nextFilters.category)  params.set("category", nextFilters.category);
+      if (nextFilters.dateFrom)  params.set("dateFrom", nextFilters.dateFrom);
+      if (nextFilters.dateTo)    params.set("dateTo",   nextFilters.dateTo);
+      if (nextPage > 1)          params.set("page",     String(nextPage));
+      const query = params.toString();
+      const url = query ? `?${query}` : "/transactions";
+      isInternalNav.current = true;
+      if (method === "push") router.push(url);
+      else router.replace(url);
+    },
+    [router]
+  );
+
+  useEffect(() => {
+    if (isInternalNav.current) {
+      isInternalNav.current = false;
+      return;
+    }
+    // URL changed externally (browser back/forward) — re-sync state
+    setSearch(searchParams.get("search") ?? "");
+    setPage(Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1));
+    setActiveFilters({
+      type:     searchParams.get("type")     ?? undefined,
+      source:   searchParams.get("source")   ?? undefined,
+      category: searchParams.get("category") ?? undefined,
+      dateFrom: searchParams.get("dateFrom") ?? undefined,
+      dateTo:   searchParams.get("dateTo")   ?? undefined,
+    });
+  }, [searchParams]);
+
   const handleFilterChange = (filters: ActiveFilters) => {
     setActiveFilters(filters);
     setPage(1);
+    syncURL(search, filters, 1, "push");
   };
 
   const handleSearchChange = (value: string) => {
     setSearch(value);
     setPage(1);
+    syncURL(value, activeFilters, 1, "replace");
+  };
+
+  const handlePageChange = (nextPage: number) => {
+    setPage(nextPage);
+    syncURL(search, activeFilters, nextPage, "replace");
   };
 
   const formatDate = (dateString: string) => {
@@ -133,7 +192,7 @@ export default function TransactionsPage() {
                 onChange={(e) => handleSearchChange(e.target.value)}
               />
             </div>
-            <TransactionFilters onFilterChange={handleFilterChange} />
+            <TransactionFilters onFilterChange={handleFilterChange} initialFilters={initialFilters} />
           </div>
         </CardContent>
       </Card>
@@ -281,7 +340,7 @@ export default function TransactionsPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setPage((p) => p - 1)}
+                  onClick={() => handlePageChange(page - 1)}
                   disabled={page === 1}
                 >
                   <ChevronLeft className="h-4 w-4" />
@@ -302,7 +361,7 @@ export default function TransactionsPage() {
                         variant={item === page ? "default" : "outline"}
                         size="sm"
                         className="w-8 h-8 p-0"
-                        onClick={() => setPage(item as number)}
+                        onClick={() => handlePageChange(item as number)}
                       >
                         {item}
                       </Button>
@@ -311,7 +370,7 @@ export default function TransactionsPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setPage((p) => p + 1)}
+                  onClick={() => handlePageChange(page + 1)}
                   disabled={page === totalPages}
                 >
                   <ChevronRight className="h-4 w-4" />

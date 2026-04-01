@@ -23,15 +23,16 @@ export interface ActiveFilters {
 
 interface TransactionFiltersProps {
   onFilterChange: (filters: ActiveFilters) => void;
+  initialFilters?: ActiveFilters;
 }
 
-export function TransactionFilters({ onFilterChange }: TransactionFiltersProps) {
+export function TransactionFilters({ onFilterChange, initialFilters }: TransactionFiltersProps) {
   const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedType, setSelectedType] = useState("");
-  const [selectedSource, setSelectedSource] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [selectedType, setSelectedType] = useState(initialFilters?.type ?? "");
+  const [selectedSource, setSelectedSource] = useState(initialFilters?.source ?? "");
+  const [selectedCategory, setSelectedCategory] = useState(initialFilters?.category ?? "");
+  const [dateFrom, setDateFrom] = useState(initialFilters?.dateFrom ?? "");
+  const [dateTo, setDateTo] = useState(initialFilters?.dateTo ?? "");
 
   useEffect(() => {
     api.categories.list().then(setCategories).catch(() => {});
