@@ -24,13 +24,12 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { title: "Dashboard", href: "/dashboard", icon: Wallet },
+  { title: "Analytics", href: "/analytics", icon: BarChart3 },
   { title: "Transactions", href: "/transactions", icon: Receipt },
   { title: "Review Queue", href: "/review", icon: AlertCircle },
   { title: "SMS Messages", href: "/sms", icon: MessageSquare },
   { title: "Categories", href: "/categories", icon: Tag },
   { title: "Data Sources", href: "/sources", icon: Database },
-  { title: "Analytics", href: "/analytics", icon: BarChart3 },
 ];
 
 const secondaryItems = [
@@ -83,7 +82,7 @@ export function Header() {
           <SheetHeader className="p-6">
             <SheetTitle asChild>
               <Link
-                href="/dashboard"
+                href="/analytics"
                 className="flex items-center gap-2"
                 onClick={() => setMobileOpen(false)}
               >

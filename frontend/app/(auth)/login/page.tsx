@@ -18,7 +18,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (getToken()) {
-      router.replace("/dashboard");
+      router.replace("/");
     }
   }, [router]);
 
@@ -29,7 +29,7 @@ export default function LoginPage() {
     try {
       const { token } = await api.auth.login(username, password);
       setToken(token);
-      router.replace("/dashboard");
+      router.replace("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {

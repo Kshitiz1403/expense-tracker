@@ -12,14 +12,15 @@ import {
   AlertCircle,
   MessageSquare,
 } from "lucide-react";
+
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 
 const navItems = [
   {
-    title: "Dashboard",
-    href: "/dashboard",
-    icon: Wallet,
+    title: "Analytics",
+    href: "/analytics",
+    icon: BarChart3,
   },
   {
     title: "Transactions",
@@ -47,11 +48,6 @@ const navItems = [
     href: "/sources",
     icon: Database,
   },
-  {
-    title: "Analytics",
-    href: "/analytics",
-    icon: BarChart3,
-  },
 ];
 
 const secondaryItems = [
@@ -68,7 +64,7 @@ export function Sidebar() {
   return (
     <div className="flex h-full flex-col border-r bg-background">
       <div className="p-6">
-        <Link href="/dashboard" className="flex items-center gap-2">
+        <Link href="/analytics" className="flex items-center gap-2">
           <Wallet className="h-6 w-6" />
           <span className="text-lg font-semibold">Expense Tracker</span>
         </Link>
