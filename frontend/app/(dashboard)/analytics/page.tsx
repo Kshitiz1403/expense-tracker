@@ -197,18 +197,15 @@ export default function AnalyticsPage() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600">Avg Monthly Income</p>
+                    <p className="text-sm text-gray-600">Income</p>
                     <p className="text-2xl font-bold text-green-600">
-                      ₹{fmt(data?.avgMonthlyIncome ?? 0)}
+                      ₹{fmt(data?.totalIncome ?? 0)}
                     </p>
                   </div>
                   <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center">
                     <TrendingUp className="h-6 w-6 text-green-600" />
                   </div>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  Total: ₹{fmt(data?.totalIncome ?? 0)}
-                </p>
               </CardContent>
             </Card>
 
@@ -216,18 +213,15 @@ export default function AnalyticsPage() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600">Avg Monthly Expense</p>
+                    <p className="text-sm text-gray-600">Expense</p>
                     <p className="text-2xl font-bold text-red-600">
-                      ₹{fmt(data?.avgMonthlyExpense ?? 0)}
+                      ₹{fmt(data?.totalExpense ?? 0)}
                     </p>
                   </div>
                   <div className="h-12 w-12 bg-red-100 rounded-full flex items-center justify-center">
                     <TrendingDown className="h-6 w-6 text-red-600" />
                   </div>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  Total: ₹{fmt(data?.totalExpense ?? 0)}
-                </p>
               </CardContent>
             </Card>
 

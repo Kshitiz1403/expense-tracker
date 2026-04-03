@@ -132,13 +132,6 @@ func (h *AnalyticsHandler) GetSummary(c *gin.Context) {
 		savingsRate = (netSavings / totals.TotalIncome) * 100
 	}
 
-	numMonths := float64(len(monthly))
-	if numMonths == 0 {
-		numMonths = 1
-	}
-	avgIncome := totals.TotalIncome / numMonths
-	avgExpense := totals.TotalExpense / numMonths
-
 	topCatName := ""
 	topCatPct := 0.0
 	if len(categories) > 0 {
@@ -153,8 +146,6 @@ func (h *AnalyticsHandler) GetSummary(c *gin.Context) {
 		TotalExpense:          totals.TotalExpense,
 		NetSavings:            netSavings,
 		SavingsRate:           savingsRate,
-		AvgMonthlyIncome:      avgIncome,
-		AvgMonthlyExpense:     avgExpense,
 		TopCategoryName:       topCatName,
 		TopCategoryPercentage: topCatPct,
 		MonthlyBreakdown:      monthly,

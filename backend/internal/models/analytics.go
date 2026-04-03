@@ -37,9 +37,6 @@ type AnalyticsSummary struct {
 	NetSavings   float64 `json:"netSavings"`
 	SavingsRate  float64 `json:"savingsRate"` // percentage, 0 if no income
 
-	AvgMonthlyIncome  float64 `json:"avgMonthlyIncome"`
-	AvgMonthlyExpense float64 `json:"avgMonthlyExpense"`
-
 	TopCategoryName       string  `json:"topCategoryName"`
 	TopCategoryPercentage float64 `json:"topCategoryPercentage"`
 

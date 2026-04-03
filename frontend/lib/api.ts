@@ -331,8 +331,6 @@ export interface AnalyticsSummary {
   totalExpense: number;
   netSavings: number;
   savingsRate: number;
-  avgMonthlyIncome: number;
-  avgMonthlyExpense: number;
   topCategoryName: string;
   topCategoryPercentage: number;
   monthlyBreakdown: MonthlyBreakdown[];
