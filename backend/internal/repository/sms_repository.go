@@ -2,10 +2,19 @@ package repository
 
 import (
 	"expense-tracker/internal/models"
+	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
+
+// SMSFilter holds optional filter criteria for browsing SMS messages
+type SMSFilter struct {
+	Search         string
+	DateFrom       *time.Time
+	DateTo         *time.Time
+	Classification string // "all" | "transaction" | "non-transaction" (default: non-transaction)
+}
 
 type SMSRepository struct {
 	db *gorm.DB
@@ -59,4 +68,47 @@ func (r *SMSRepository) GetUnprocessed(limit int) ([]models.SMSMessage, error) {
 		Limit(limit).
 		Find(&messages).Error
 	return messages, err
+}
+
+// GetMessages returns processed SMS messages filtered by classification.
+// "non-transaction" (default): SMS with no linked transaction
+// "transaction": SMS that have a linked transaction
+// "all": every processed SMS
+func (r *SMSRepository) GetMessages(filter SMSFilter, limit, offset int) ([]models.SMSMessage, int64, error) {
+	var messages []models.SMSMessage
+	var total int64
+
+	base := r.db.Model(&models.SMSMessage{}).
+		Where("sms_messages.processed = ?", true).
+		Joins("LEFT JOIN transactions ON transactions.source_id = sms_messages.id AND transactions.deleted_at IS NULL")
+
+	switch filter.Classification {
+	case "transaction":
+		base = base.Where("transactions.id IS NOT NULL")
+	case "non-transaction":
+		base = base.Where("transactions.id IS NULL")
+	default: // "all" or empty — show everything
+	}
+
+	if filter.Search != "" {
+		like := "%" + filter.Search + "%"
+		base = base.Where("sms_messages.message ILIKE ? OR sms_messages.phone_number ILIKE ?", like, like)
+	}
+	if filter.DateFrom != nil {
+		base = base.Where("sms_messages.received_at >= ?", filter.DateFrom)
+	}
+	if filter.DateTo != nil {
+		base = base.Where("sms_messages.received_at <= ?", filter.DateTo)
+	}
+
+	if err := base.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	err := base.
+		Order("sms_messages.received_at DESC").
+		Limit(limit).Offset(offset).
+		Find(&messages).Error
+
+	return messages, total, err
 }

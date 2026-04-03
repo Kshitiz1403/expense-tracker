@@ -101,6 +101,7 @@ func main() {
 	categoryHandler := handlers.NewCategoryHandler(catRepo)
 	transactionHandler := handlers.NewTransactionHandler(txRepo, catRepo)
 	analyticsHandler := handlers.NewAnalyticsHandler(analyticsRepo)
+	smsHandler := handlers.NewSMSHandler(smsRepo, txRepo, catRepo, aiCallRepo, aiService)
 
 	// Initialize Gin router
 	router := gin.Default()
@@ -170,6 +171,13 @@ func main() {
 			analytics := protected.Group("/analytics")
 			{
 				analytics.GET("/summary", analyticsHandler.GetSummary)
+			}
+
+			// SMS Messages (browse unconverted + manual conversion)
+			sms := protected.Group("/sms")
+			{
+				sms.GET("", smsHandler.ListSMS)
+				sms.POST("/:id/convert", smsHandler.ConvertSMS)
 			}
 		}
 	}
