@@ -2,50 +2,34 @@ package workers
 
 import (
 	"context"
-	"encoding/json"
 	"expense-tracker/internal/services"
 	"fmt"
 	"log"
 
 	"github.com/google/uuid"
-	"github.com/hibiken/asynq"
+	"github.com/riverqueue/river"
 )
 
-// Task type constants
-const (
-	TypeProcessSMS = "sms:process"
-)
-
-// Task payload structures
-type ProcessSMSPayload struct {
+type ProcessSMSArgs struct {
 	SMSID uuid.UUID `json:"sms_id"`
 }
 
-// SMSTaskHandler handles SMS processing tasks
-type SMSTaskHandler struct {
+func (ProcessSMSArgs) Kind() string { return "sms:process" }
+
+type SMSWorker struct {
+	river.WorkerDefaults[ProcessSMSArgs]
 	processor *services.TransactionProcessor
 }
 
-func NewSMSTaskHandler(processor *services.TransactionProcessor) *SMSTaskHandler {
-	return &SMSTaskHandler{
-		processor: processor,
-	}
+func NewSMSWorker(processor *services.TransactionProcessor) *SMSWorker {
+	return &SMSWorker{processor: processor}
 }
 
-// HandleProcessSMS processes an SMS message task
-func (h *SMSTaskHandler) HandleProcessSMS(ctx context.Context, task *asynq.Task) error {
-	var payload ProcessSMSPayload
-	if err := json.Unmarshal(task.Payload(), &payload); err != nil {
-		return fmt.Errorf("failed to unmarshal payload: %w", err)
-	}
-
-	log.Printf("Processing SMS task: SMSID=%s", payload.SMSID)
-
-	// Process the SMS
-	if err := h.processor.ProcessSMS(ctx, payload.SMSID); err != nil {
+func (w *SMSWorker) Work(ctx context.Context, job *river.Job[ProcessSMSArgs]) error {
+	log.Printf("Processing SMS job: SMSID=%s attempt=%d", job.Args.SMSID, job.Attempt)
+	if err := w.processor.ProcessSMS(ctx, job.Args.SMSID); err != nil {
 		return fmt.Errorf("failed to process SMS: %w", err)
 	}
-
-	log.Printf("Successfully processed SMS: SMSID=%s", payload.SMSID)
+	log.Printf("Successfully processed SMS: SMSID=%s", job.Args.SMSID)
 	return nil
 }

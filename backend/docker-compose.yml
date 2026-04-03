@@ -21,21 +21,6 @@ services:
     networks:
       - expense-tracker-network
 
-  # Redis for Asynq
-  redis:
-    image: redis:7-alpine
-    container_name: expense_tracker_redis
-    restart: unless-stopped
-    volumes:
-      - ./data/redis:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 5
-    networks:
-      - expense-tracker-network
-
   # Backend Go Service
   backend:
     build:
@@ -55,10 +40,6 @@ services:
       DB_USER: expense_tracker
       DB_PASSWORD: expense_tracker_dev
       DB_NAME: expense_tracker_db
-      
-      # Redis
-      REDIS_ADDR: redis:6379
-      REDIS_PASSWORD: ""
       
       # SMS Gateway
       SMS_GATEWAY_SECRET: ${SMS_GATEWAY_SECRET}
@@ -80,8 +61,6 @@ services:
 
     depends_on:
       postgres:
-        condition: service_healthy
-      redis:
         condition: service_healthy
     restart: unless-stopped
     networks:

@@ -1,69 +1,50 @@
 package workers
 
 import (
-	"expense-tracker/internal/config"
+	"context"
 	"expense-tracker/internal/services"
 	"log"
 
-	"github.com/hibiken/asynq"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/riverqueue/river"
+	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 )
 
-// Server wraps asynq server for processing tasks
-type Server struct {
-	server  *asynq.Server
-	mux     *asynq.ServeMux
-	handler *SMSTaskHandler
+// WorkerServer wraps the River client for consuming jobs.
+type WorkerServer struct {
+	riverClient *river.Client[pgx.Tx]
 }
 
-func NewServer(cfg *config.Config, processor *services.TransactionProcessor) *Server {
-	// Create Redis connection config
-	redisOpt := asynq.RedisClientOpt{
-		Addr: cfg.Redis.Addr,
+// NewWorkerServer creates a River client with registered workers.
+// Returns both the WorkerServer and the shared River client (for use by TaskClient).
+func NewWorkerServer(pool *pgxpool.Pool, processor *services.TransactionProcessor) (*WorkerServer, *river.Client[pgx.Tx], error) {
+	workers := river.NewWorkers()
+	if processor != nil {
+		river.AddWorker(workers, NewSMSWorker(processor))
 	}
-	if cfg.Redis.Password != "" {
-		redisOpt.Password = cfg.Redis.Password
+
+	riverClient, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
+		Queues:  map[string]river.QueueConfig{"sms": {MaxWorkers: 10}},
+		Workers: workers,
+	})
+	if err != nil {
+		return nil, nil, err
 	}
 
-	// Create server with configuration
-	server := asynq.NewServer(
-		redisOpt,
-		asynq.Config{
-			Concurrency: 10, // Number of concurrent workers
-			Queues: map[string]int{
-				"critical": 6, // 60% of workers
-				"default":  3, // 30% of workers
-				"low":      1, // 10% of workers
-			},
-			// Graceful shutdown timeout
-			ShutdownTimeout: 30,
-		},
-	)
-
-	// Create task handler
-	handler := NewSMSTaskHandler(processor)
-
-	// Create mux and register handlers
-	mux := asynq.NewServeMux()
-	mux.HandleFunc(TypeProcessSMS, handler.HandleProcessSMS)
-
-	return &Server{
-		server:  server,
-		mux:     mux,
-		handler: handler,
-	}
+	return &WorkerServer{riverClient: riverClient}, riverClient, nil
 }
 
-// Start begins processing tasks
-func (s *Server) Start() error {
-	log.Println("Starting asynq worker server...")
-	if err := s.server.Start(s.mux); err != nil {
-		return err
-	}
-	return nil
+// Start begins consuming jobs from the queue.
+func (s *WorkerServer) Start(ctx context.Context) error {
+	log.Println("Starting River worker server...")
+	return s.riverClient.Start(ctx)
 }
 
-// Stop gracefully shuts down the server
-func (s *Server) Stop() {
-	log.Println("Shutting down asynq worker server...")
-	s.server.Shutdown()
+// Stop gracefully shuts down the worker.
+func (s *WorkerServer) Stop(ctx context.Context) {
+	log.Println("Shutting down River worker server...")
+	if err := s.riverClient.Stop(ctx); err != nil {
+		log.Printf("Error stopping River worker: %v", err)
+	}
 }

@@ -19,17 +19,3 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
-  # Redis for Asynq
-  redis:
-    image: redis:7-alpine
-    container_name: expense_tracker_redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - ./data/redis:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 5

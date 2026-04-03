@@ -1,42 +1,31 @@
 package workers
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/hibiken/asynq"
+	"github.com/jackc/pgx/v5"
+	"github.com/riverqueue/river"
 )
 
-// TaskClient wraps asynq client for creating tasks
+// TaskClient wraps the River client for enqueueing jobs.
 type TaskClient struct {
-	client *asynq.Client
+	riverClient *river.Client[pgx.Tx]
 }
 
-func NewTaskClient(redisAddr string) (*TaskClient, error) {
-	client := asynq.NewClient(asynq.RedisClientOpt{Addr: redisAddr})
-	return &TaskClient{client: client}, nil
+func NewTaskClient(riverClient *river.Client[pgx.Tx]) *TaskClient {
+	return &TaskClient{riverClient: riverClient}
 }
 
-func (c *TaskClient) Close() error {
-	return c.client.Close()
-}
-
-// EnqueueProcessSMS enqueues an SMS processing task
-func (c *TaskClient) EnqueueProcessSMS(smsID uuid.UUID) error {
-	payload, err := json.Marshal(ProcessSMSPayload{SMSID: smsID})
+// EnqueueProcessSMS inserts an SMS processing job into the River queue.
+func (c *TaskClient) EnqueueProcessSMS(ctx context.Context, smsID uuid.UUID) error {
+	_, err := c.riverClient.Insert(ctx, ProcessSMSArgs{SMSID: smsID}, &river.InsertOpts{
+		Queue:       "sms",
+		MaxAttempts: 30,
+	})
 	if err != nil {
-		return fmt.Errorf("failed to marshal payload: %w", err)
+		return fmt.Errorf("failed to enqueue SMS job: %w", err)
 	}
-
-	task := asynq.NewTask(TypeProcessSMS, payload)
-
-	// Enqueue with default options (immediate processing, with retries)
-	info, err := c.client.Enqueue(task, asynq.MaxRetry(3), asynq.Queue("default"))
-	if err != nil {
-		return fmt.Errorf("failed to enqueue task: %w", err)
-	}
-
-	fmt.Printf("Enqueued task: id=%s queue=%s\n", info.ID, info.Queue)
 	return nil
 }

@@ -12,7 +12,6 @@ import (
 type Config struct {
 	Server   ServerConfig
 	Database DatabaseConfig
-	Redis    RedisConfig
 	SMS      SMSConfig
 	Frontend FrontendConfig
 	LLM      LLMConfig
@@ -37,11 +36,6 @@ type DatabaseConfig struct {
 	User     string
 	Password string
 	DBName   string
-}
-
-type RedisConfig struct {
-	Addr     string
-	Password string
 }
 
 type SMSConfig struct {
@@ -76,10 +70,6 @@ func Load() *Config {
 			User:     getEnv("DB_USER", "postgres"),
 			Password: getEnv("DB_PASSWORD", ""),
 			DBName:   getEnv("DB_NAME", "expense_tracker_db"),
-		},
-		Redis: RedisConfig{
-			Addr:     getEnv("REDIS_ADDR", "localhost:6379"),
-			Password: getEnv("REDIS_PASSWORD", ""),
 		},
 		SMS: SMSConfig{
 			WebhookSecret: getEnv("SMS_GATEWAY_SECRET", ""),

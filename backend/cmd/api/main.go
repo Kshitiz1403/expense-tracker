@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"expense-tracker/internal/config"
 	"expense-tracker/internal/handlers"
@@ -13,6 +15,9 @@ import (
 	"expense-tracker/internal/workers"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/riverqueue/river/riverdriver/riverpgxv5"
+	"github.com/riverqueue/river/rivermigrate"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -77,23 +82,37 @@ func main() {
 		log.Println("No LLM_API_KEY configured - AI extraction disabled")
 	}
 
-	// Initialize asynq task client
-	taskClient, err := workers.NewTaskClient(cfg.Redis.Addr)
+	// Initialize River (pgxpool + migrations + worker server)
+	ctx := context.Background()
+	pool, err := initRiverPool(ctx, cfg)
 	if err != nil {
-		log.Fatalf("Failed to create task client: %v", err)
+		log.Fatalf("Failed to create River pool: %v", err)
 	}
-	defer taskClient.Close()
+	defer pool.Close()
 
-	// Initialize asynq worker server
-	workerServer := workers.NewServer(cfg, processor)
+	if err := runRiverMigrations(ctx, pool); err != nil {
+		log.Fatalf("Failed to run River migrations: %v", err)
+	}
 
-	// Start worker in background
+	workerServer, riverClient, err := workers.NewWorkerServer(pool, processor)
+	if err != nil {
+		log.Fatalf("Failed to create River worker server: %v", err)
+	}
+
+	taskClient := workers.NewTaskClient(riverClient)
+
+	workerCtx, workerCancel := context.WithCancel(ctx)
+	defer workerCancel()
 	go func() {
-		if err := workerServer.Start(); err != nil {
-			log.Fatalf("Failed to start worker server: %v", err)
+		if err := workerServer.Start(workerCtx); err != nil {
+			log.Fatalf("River worker failed: %v", err)
 		}
 	}()
-	defer workerServer.Stop()
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		workerServer.Stop(shutdownCtx)
+	}()
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(&cfg.Auth)
@@ -189,6 +208,34 @@ func main() {
 	if err := router.Run(addr); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
+}
+
+func initRiverPool(ctx context.Context, cfg *config.Config) (*pgxpool.Pool, error) {
+	pool, err := pgxpool.New(ctx, cfg.Database.DSN())
+	if err != nil {
+		return nil, fmt.Errorf("failed to create pgxpool: %w", err)
+	}
+	if err := pool.Ping(ctx); err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("failed to ping database via pgxpool: %w", err)
+	}
+	log.Println("River pgxpool connection established")
+	return pool, nil
+}
+
+func runRiverMigrations(ctx context.Context, pool *pgxpool.Pool) error {
+	migrator, err := rivermigrate.New(riverpgxv5.New(pool), nil)
+	if err != nil {
+		return fmt.Errorf("failed to create river migrator: %w", err)
+	}
+	res, err := migrator.Migrate(ctx, rivermigrate.DirectionUp, nil)
+	if err != nil {
+		return fmt.Errorf("river migrations failed: %w", err)
+	}
+	for _, v := range res.Versions {
+		log.Printf("River migration applied: version=%d", v.Version)
+	}
+	return nil
 }
 
 func initDatabase(cfg *config.Config) (*gorm.DB, error) {

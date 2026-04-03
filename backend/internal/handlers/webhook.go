@@ -121,7 +121,7 @@ func (h *WebhookHandler) HandleSMSWebhook(c *gin.Context) {
 		smsMessage.ID, smsMessage.EventID, smsMessage.PhoneNumber, smsMessage.Message[:min(50, len(smsMessage.Message))])
 
 	// Enqueue SMS processing task
-	if err := h.taskClient.EnqueueProcessSMS(smsMessage.ID); err != nil {
+	if err := h.taskClient.EnqueueProcessSMS(c.Request.Context(), smsMessage.ID); err != nil {
 		log.Printf("Error enqueueing SMS processing task: %v", err)
 		// Don't fail the webhook - task will be retried
 	}
