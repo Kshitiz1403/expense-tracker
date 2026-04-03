@@ -10,6 +10,7 @@ import {
   BarChart3,
   Settings,
   AlertCircle,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
@@ -30,6 +31,11 @@ const navItems = [
     href: "/review",
     icon: AlertCircle,
     badge: "pending",
+  },
+  {
+    title: "SMS Messages",
+    href: "/sms",
+    icon: MessageSquare,
   },
   {
     title: "Categories",

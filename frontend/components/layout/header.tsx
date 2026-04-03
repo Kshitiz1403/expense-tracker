@@ -15,6 +15,7 @@ import {
   BarChart3,
   Settings,
   AlertCircle,
+  MessageSquare,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ const navItems = [
   { title: "Dashboard", href: "/dashboard", icon: Wallet },
   { title: "Transactions", href: "/transactions", icon: Receipt },
   { title: "Review Queue", href: "/review", icon: AlertCircle },
+  { title: "SMS Messages", href: "/sms", icon: MessageSquare },
   { title: "Categories", href: "/categories", icon: Tag },
   { title: "Data Sources", href: "/sources", icon: Database },
   { title: "Analytics", href: "/analytics", icon: BarChart3 },

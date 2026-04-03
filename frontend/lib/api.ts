@@ -158,6 +158,27 @@ class APIClient {
     },
   };
 
+  // SMS API
+  sms = {
+    list: (params?: SMSListParams) => {
+      const query = new URLSearchParams();
+      if (params?.page) query.set('page', params.page.toString());
+      if (params?.limit) query.set('limit', params.limit.toString());
+      if (params?.search) query.set('search', params.search);
+      if (params?.dateFrom) query.set('date_from', params.dateFrom);
+      if (params?.dateTo) query.set('date_to', params.dateTo);
+      if (params?.classification) query.set('classification', params.classification);
+      const qs = query.toString();
+      return this.request<SMSListResponse>(`/api/sms${qs ? `?${qs}` : ''}`);
+    },
+
+    convert: (id: string, data: ConvertSMSInput) =>
+      this.request<Transaction>(`/api/sms/${id}/convert`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+  };
+
   // Health API
   health = {
     check: () =>
@@ -178,6 +199,8 @@ export interface SMSMessage {
   phoneNumber: string;
   message: string;
   receivedAt: string;
+  processed: boolean;
+  processingError?: string;
   createdAt: string;
 }
 
@@ -319,3 +342,31 @@ export interface AnalyticsSummaryParams {
   dateFrom?: string;
   dateTo?: string;
 }
+
+export interface SMSListParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  classification?: 'all' | 'transaction' | 'non-transaction';
+}
+
+export interface SMSListResponse {
+  messages: SMSMessage[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export type ConvertSMSInput =
+  | { use_ai: true }
+  | {
+      use_ai: false;
+      amount: number;
+      type: 'income' | 'expense';
+      description: string;
+      merchant?: string;
+      category_id?: string;
+      transaction_date?: string;
+    };
