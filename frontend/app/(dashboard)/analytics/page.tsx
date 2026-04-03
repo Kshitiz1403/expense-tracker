@@ -31,6 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { api, AnalyticsSummary } from "@/lib/api";
 
 const FALLBACK_COLORS = [
@@ -42,17 +43,53 @@ const FALLBACK_COLORS = [
 const fmt = (n: number) =>
   new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(n);
 
+type PresetKey = "1d" | "7d" | "15d" | "1m" | "3m" | "6m" | "12m" | "custom";
+
+const PRESETS: { label: string; key: PresetKey; months?: number; days?: number }[] = [
+  { label: "Last 1 Day",     key: "1d",     days: 1    },
+  { label: "Last 7 Days",    key: "7d",     days: 7    },
+  { label: "Last 15 Days",   key: "15d",    days: 15   },
+  { label: "Last 1 Month",   key: "1m",     months: 1  },
+  { label: "Last 3 Months",  key: "3m",     months: 3  },
+  { label: "Last 6 Months",  key: "6m",     months: 6  },
+  { label: "Last 12 Months", key: "12m",    months: 12 },
+  { label: "Custom Range",   key: "custom"              },
+];
+
+function toISODate(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+
 export default function AnalyticsPage() {
   const [data, setData] = useState<AnalyticsSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [months, setMonths] = useState<number>(6);
+  const [preset, setPreset] = useState<PresetKey>("6m");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
 
   useEffect(() => {
     const load = async () => {
+      let params: Parameters<typeof api.analytics.summary>[0];
+
+      if (preset === "custom") {
+        if (!customFrom || !customTo) return;
+        params = { dateFrom: customFrom, dateTo: customTo };
+      } else {
+        const p = PRESETS.find((x) => x.key === preset)!;
+        if (p.days !== undefined) {
+          const to = new Date();
+          const from = new Date();
+          from.setDate(from.getDate() - p.days);
+          params = { dateFrom: toISODate(from), dateTo: toISODate(to) };
+        } else {
+          params = { months: p.months };
+        }
+      }
+
       try {
         setLoading(true);
-        const result = await api.analytics.summary({ months });
+        const result = await api.analytics.summary(params);
         setData(result);
         setError(null);
       } catch (err) {
@@ -62,7 +99,9 @@ export default function AnalyticsPage() {
       }
     };
     load();
-  }, [months]);
+  }, [preset, customFrom, customTo]);
+
+  const selectedPreset = PRESETS.find((p) => p.key === preset)!;
 
   const hasData = data && (data.totalIncome > 0 || data.totalExpense > 0);
 
@@ -84,7 +123,7 @@ export default function AnalyticsPage() {
           type: data.savingsRate > 20 ? "success" : "warning",
           icon: data.savingsRate > 20 ? CheckCircle : AlertTriangle,
           title: data.savingsRate > 20 ? "Good savings rate" : "Low savings rate",
-          text: `You saved ${data.savingsRate.toFixed(1)}% of your income over the last ${months} months.`,
+          text: `You saved ${data.savingsRate.toFixed(1)}% of your income during the selected period.`,
         },
         {
           type: "info",
@@ -111,16 +150,37 @@ export default function AnalyticsPage() {
           <h1 className="text-3xl font-bold">Analytics</h1>
           <p className="text-gray-600 mt-1">Insights into your spending patterns</p>
         </div>
-        <Select value={String(months)} onValueChange={(v) => setMonths(Number(v))}>
-          <SelectTrigger className="w-40">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="3">Last 3 Months</SelectItem>
-            <SelectItem value="6">Last 6 Months</SelectItem>
-            <SelectItem value="12">Last 12 Months</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          <Select value={preset} onValueChange={(v) => setPreset(v as PresetKey)}>
+            <SelectTrigger className="w-44">
+              <SelectValue>{selectedPreset.label}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {PRESETS.map((p) => (
+                <SelectItem key={p.key} value={p.key}>{p.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {preset === "custom" && (
+            <>
+              <Input
+                type="date"
+                className="w-36"
+                value={customFrom}
+                max={customTo || undefined}
+                onChange={(e) => setCustomFrom(e.target.value)}
+              />
+              <span className="text-sm text-gray-500">to</span>
+              <Input
+                type="date"
+                className="w-36"
+                value={customTo}
+                min={customFrom || undefined}
+                onChange={(e) => setCustomTo(e.target.value)}
+              />
+            </>
+          )}
+        </div>
       </div>
 
       {error && (
