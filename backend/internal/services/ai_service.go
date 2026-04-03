@@ -40,7 +40,7 @@ func (p *nvidiaProvider) generateText(ctx context.Context, prompt string) (strin
 	reqBody, err := json.Marshal(map[string]any{
 		"model":      p.model,
 		"messages":   []map[string]string{{"role": "user", "content": prompt}},
-		"max_tokens": 1024,
+		"max_tokens": 1024 * 20,
 		"stream":     false,
 	})
 	if err != nil {

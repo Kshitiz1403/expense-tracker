@@ -14,7 +14,7 @@ func TestNvidiaProvider_GenerateText(t *testing.T) {
 		t.Skip("NVIDIA_API_KEY not set")
 	}
 
-	svc, err := services.NewAIService("nvidia", apiKey, "moonshotai/kimi-k2.5")
+	svc, err := services.NewAIService("nvidia", apiKey, "moonshotai/kimi-k2-instruct-0905")
 	if err != nil {
 		t.Fatalf("failed to create AI service: %v", err)
 	}
