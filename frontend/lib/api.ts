@@ -172,6 +172,9 @@ class APIClient {
       return this.request<SMSListResponse>(`/api/sms${qs ? `?${qs}` : ''}`);
     },
 
+    extract: (id: string) =>
+      this.request<SMSExtractResult>(`/api/sms/${id}/extract`, { method: 'POST' }),
+
     convert: (id: string, data: ConvertSMSInput) =>
       this.request<Transaction>(`/api/sms/${id}/convert`, {
         method: 'POST',
@@ -359,14 +362,22 @@ export interface SMSListResponse {
   limit: number;
 }
 
-export type ConvertSMSInput =
-  | { use_ai: true }
-  | {
-      use_ai: false;
-      amount: number;
-      type: 'income' | 'expense';
-      description: string;
-      merchant?: string;
-      category_id?: string;
-      transaction_date?: string;
-    };
+export interface ConvertSMSInput {
+  amount: number;
+  type: 'income' | 'expense';
+  description: string;
+  merchant?: string;
+  category_id?: string;
+  category_name?: string;
+  transaction_date?: string;
+}
+
+export interface SMSExtractResult {
+  amount: number;
+  type: 'income' | 'expense';
+  merchant: string;
+  category: string;
+  categoryId?: string;
+  description: string;
+  confidence: number;
+}

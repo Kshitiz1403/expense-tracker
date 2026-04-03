@@ -177,6 +177,7 @@ func main() {
 			sms := protected.Group("/sms")
 			{
 				sms.GET("", smsHandler.ListSMS)
+				sms.POST("/:id/extract", smsHandler.ExtractSMS)
 				sms.POST("/:id/convert", smsHandler.ConvertSMS)
 			}
 		}

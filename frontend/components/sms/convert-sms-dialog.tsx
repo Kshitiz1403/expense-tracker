@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Sparkles, PenLine, Loader2 } from "lucide-react";
-import { api, SMSMessage, Transaction, Category } from "@/lib/api";
+import { api, SMSMessage, Transaction, SMSExtractResult, Category } from "@/lib/api";
 
 type Mode = "choose" | "ai_loading" | "ai_preview" | "manual";
 
@@ -35,8 +35,9 @@ export function ConvertSMSDialog({
   const [transactionType, setTransactionType] = useState<"income" | "expense">("expense");
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [aiPreview, setAIPreview] = useState<Transaction | null>(null);
+  const [aiPreview, setAIPreview] = useState<SMSExtractResult | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -48,12 +49,13 @@ export function ConvertSMSDialog({
     }
   }, [open]);
 
+  // Step 1: call extract — no transaction created
   const handleExtractWithAI = async () => {
     setMode("ai_loading");
     setError(null);
     try {
-      const transaction = await api.sms.convert(sms.id, { use_ai: true });
-      setAIPreview(transaction);
+      const result = await api.sms.extract(sms.id);
+      setAIPreview(result);
       setMode("ai_preview");
     } catch (err) {
       setError(err instanceof Error ? err.message : "AI extraction failed");
@@ -61,10 +63,27 @@ export function ConvertSMSDialog({
     }
   };
 
-  const handleConfirmAI = () => {
-    if (aiPreview) {
+  // Step 2: confirm — now creates the transaction using the extracted fields
+  const handleConfirmAI = async () => {
+    if (!aiPreview) return;
+    setConfirming(true);
+    setError(null);
+    try {
+      const transaction = await api.sms.convert(sms.id, {
+        amount: aiPreview.amount,
+        type: aiPreview.type,
+        description: aiPreview.description,
+        merchant: aiPreview.merchant || undefined,
+        category_id: aiPreview.categoryId,
+        category_name:
+          !aiPreview.categoryId && aiPreview.category ? aiPreview.category : undefined,
+      });
       onOpenChange(false);
-      onSuccess(aiPreview);
+      onSuccess(transaction);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create transaction");
+    } finally {
+      setConfirming(false);
     }
   };
 
@@ -75,7 +94,6 @@ export function ConvertSMSDialog({
     const formData = new FormData(e.currentTarget);
     try {
       const transaction = await api.sms.convert(sms.id, {
-        use_ai: false,
         amount: parseFloat(formData.get("amount") as string),
         type: transactionType,
         description: formData.get("description") as string,
@@ -146,9 +164,7 @@ export function ConvertSMSDialog({
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
                 <span className="text-muted-foreground">Amount</span>
-                <p className="font-semibold">
-                  ₹{aiPreview.amount.toLocaleString("en-IN")}
-                </p>
+                <p className="font-semibold">₹{aiPreview.amount.toLocaleString("en-IN")}</p>
               </div>
               <div>
                 <span className="text-muted-foreground">Type</span>
@@ -166,43 +182,53 @@ export function ConvertSMSDialog({
               </div>
               <div>
                 <span className="text-muted-foreground">Merchant</span>
-                <p>{aiPreview.merchant ?? "—"}</p>
+                <p>{aiPreview.merchant || "—"}</p>
               </div>
               <div>
                 <span className="text-muted-foreground">Category</span>
-                <p>{aiPreview.category?.name ?? "—"}</p>
+                <p>{aiPreview.category || "—"}</p>
               </div>
               <div className="col-span-2">
                 <span className="text-muted-foreground">Description</span>
                 <p>{aiPreview.description}</p>
               </div>
-              {aiPreview.aiConfidence !== undefined && (
-                <div>
-                  <span className="text-muted-foreground">Confidence</span>
-                  <div className="mt-0.5">
-                    <Badge
-                      className={
-                        aiPreview.aiConfidence >= 0.9
-                          ? "bg-green-100 text-green-700 hover:bg-green-100"
-                          : "bg-yellow-100 text-yellow-700 hover:bg-yellow-100"
-                      }
-                    >
-                      {Math.round(aiPreview.aiConfidence * 100)}%
-                    </Badge>
-                  </div>
+              <div>
+                <span className="text-muted-foreground">Confidence</span>
+                <div className="mt-0.5">
+                  <Badge
+                    className={
+                      aiPreview.confidence >= 0.9
+                        ? "bg-green-100 text-green-700 hover:bg-green-100"
+                        : "bg-yellow-100 text-yellow-700 hover:bg-yellow-100"
+                    }
+                  >
+                    {Math.round(aiPreview.confidence * 100)}%
+                  </Badge>
                 </div>
-              )}
+              </div>
             </div>
-            {aiPreview.requiresReview && (
+            {aiPreview.confidence < 0.9 && (
               <div className="text-xs text-amber-600 bg-amber-50 p-2 rounded-md">
                 Low confidence — this will appear in the Review Queue for further confirmation.
               </div>
             )}
+            {error && (
+              <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md">{error}</div>
+            )}
             <DialogFooter>
-              <Button variant="outline" onClick={() => setMode("choose")}>
+              <Button variant="outline" onClick={() => setMode("choose")} disabled={confirming}>
                 Back
               </Button>
-              <Button onClick={handleConfirmAI}>Confirm & Save</Button>
+              <Button onClick={handleConfirmAI} disabled={confirming}>
+                {confirming ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Confirm & Save"
+                )}
+              </Button>
             </DialogFooter>
           </div>
         )}
