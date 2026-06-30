@@ -223,6 +223,7 @@ Rules:
 - If you cannot extract a field with confidence, use reasonable defaults
 - Confidence should reflect how certain you are about the extraction
 - For unclear transactions, use lower confidence (< 0.7)
+- Messages containing OTP are not transactional messages
 
 Return only valid JSON:`, smsMessage)
 }
