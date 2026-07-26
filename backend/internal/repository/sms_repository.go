@@ -49,13 +49,13 @@ func (r *SMSRepository) GetByID(id uuid.UUID) (*models.SMSMessage, error) {
 	return &sms, err
 }
 
-// MarkAsProcessed updates the SMS as processed
+// MarkAsProcessed updates the SMS as processed, setting or clearing the
+// processing error (a nil pointer clears any error left over from a
+// previous failed attempt).
 func (r *SMSRepository) MarkAsProcessed(id uuid.UUID, processingError *string) error {
 	updates := map[string]interface{}{
-		"processed": true,
-	}
-	if processingError != nil {
-		updates["processing_error"] = *processingError
+		"processed":        true,
+		"processing_error": processingError,
 	}
 	return r.db.Model(&models.SMSMessage{}).Where("id = ?", id).Updates(updates).Error
 }
