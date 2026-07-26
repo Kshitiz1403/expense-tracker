@@ -72,6 +72,17 @@ services:
       retries: 3
       start_period: 40s
 
+  # Riverqueue UI
+  riverqueue:
+    image: ghcr.io/riverqueue/riverui:latest
+    container_name: riverqueue_ui
+    environment:
+      DATABASE_URL: "host=postgres port=5432 user=expense_tracker password=expense_tracker_dev dbname=expense_tracker_db sslmode=disable"
+    networks:
+      - expense-tracker-network
+    ports:
+      - 8080:8080
+
 networks:
   expense-tracker-network:
     driver: bridge
