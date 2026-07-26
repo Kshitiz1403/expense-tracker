@@ -171,7 +171,9 @@ func (p *SMSParser) isOTPMessage(message string) bool {
 		regexp.MustCompile(`(?i)\d{4,6}\s+is\s+your\s+(OTP|code|verification)`),
 		regexp.MustCompile(`(?i)verification\s+code\s*:?\s*\d+`),
 		regexp.MustCompile(`(?i)(\d{4,6})\s+is\s+the\s+OTP`),
-		regexp.MustCompile(`(?i)do\s+not\s+share.*OTP`),
+		regexp.MustCompile(`(?i)share\s+OTP`),
+		regexp.MustCompile(`(?i)verify\s+using\s+OTP`),
+		regexp.MustCompile(`(?i)OTP\s+\d{4,6}`),
 	}
 
 	for _, pattern := range otpPatterns {

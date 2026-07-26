@@ -50,6 +50,13 @@ func TestSMSParser_TransactionMessage(t *testing.T) {
 			expectedType:  MessageTypeOTP,
 		},
 		{
+			name:          "ECOM Transaction Verification OTP",
+			message:       "Customer,Your ECOM transaction of INR 173.00 at ZEPTO MARKETPLA on Advantage Club card requires verification.Kindly verify using OTP 500504.Never share OTP with anyone",
+			phoneNumber:   "VM-ADVCLB",
+			shouldBeValid: false,
+			expectedType:  MessageTypeOTP,
+		},
+		{
 			name:          "Promotional Message",
 			message:       "Get 20% cashback on all purchases! Limited time offer. Click here to shop now and save upto Rs. 5000",
 			phoneNumber:   "AD-PROMO",
