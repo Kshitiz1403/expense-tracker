@@ -223,7 +223,7 @@ Rules:
 - If you cannot extract a field with confidence, use reasonable defaults
 - Confidence should reflect how certain you are about the extraction
 - For unclear transactions, use lower confidence (< 0.7)
-- Messages containing OTP are not transactional messages
+- If the message is an OTP/verification/authentication request rather than a confirmed completed transaction (e.g. it asks the recipient to "verify using OTP", "enter OTP", "share OTP", or similar), it is NOT a transaction — regardless of any amount mentioned, set "amount" to 0 and "confidence" to 0
 
 Return only valid JSON:`, smsMessage)
 }
