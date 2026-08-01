@@ -9,6 +9,8 @@ import (
 	"github.com/joho/godotenv"
 )
 
+const maxLLMFallbacks = 5
+
 type Config struct {
 	Server   ServerConfig
 	Database DatabaseConfig
@@ -44,9 +46,10 @@ type SMSConfig struct {
 }
 
 type LLMConfig struct {
-	Provider string // openai, anthropic, etc.
-	APIKey   string
-	Model    string
+	Provider  string // openai, anthropic, etc.
+	APIKey    string
+	Model     string
+	Fallbacks []LLMConfig // ordered list of fallback providers
 }
 
 type FrontendConfig struct {
@@ -76,9 +79,10 @@ func Load() *Config {
 			WebhookID:     getEnv("SMS_GATEWAY_WEBHOOK_ID", ""),
 		},
 		LLM: LLMConfig{
-			Provider: getEnv("LLM_PROVIDER", "openai"),
-			APIKey:   getEnv("LLM_API_KEY", ""),
-			Model:    getEnv("LLM_MODEL", "gpt-4o-mini"),
+			Provider:  getEnv("LLM_PROVIDER", "openai"),
+			APIKey:    getEnv("LLM_API_KEY", ""),
+			Model:     getEnv("LLM_MODEL", "gpt-4o-mini"),
+			Fallbacks: loadLLMFallbacks(),
 		},
 		Frontend: FrontendConfig{
 			URL: getEnv("FRONTEND_URL", "http://localhost:3001"),
@@ -113,4 +117,22 @@ func getEnvInt(key string, defaultValue int) int {
 		}
 	}
 	return defaultValue
+}
+
+// loadLLMFallbacks reads up to maxLLMFallbacks fallback configs from env vars.
+// Expected format: LLM_FALLBACK_1_PROVIDER, LLM_FALLBACK_1_API_KEY, LLM_FALLBACK_1_MODEL, etc.
+func loadLLMFallbacks() []LLMConfig {
+	var fallbacks []LLMConfig
+	for i := 1; i <= maxLLMFallbacks; i++ {
+		provider := os.Getenv(fmt.Sprintf("LLM_FALLBACK_%d_PROVIDER", i))
+		if provider == "" {
+			break
+		}
+		fallbacks = append(fallbacks, LLMConfig{
+			Provider: provider,
+			APIKey:   os.Getenv(fmt.Sprintf("LLM_FALLBACK_%d_API_KEY", i)),
+			Model:    os.Getenv(fmt.Sprintf("LLM_FALLBACK_%d_MODEL", i)),
+		})
+	}
+	return fallbacks
 }

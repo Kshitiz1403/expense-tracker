@@ -69,12 +69,22 @@ func main() {
 
 	if cfg.LLM.APIKey != "" {
 		var err error
-		aiService, err = services.NewAIService(cfg.LLM.Provider, cfg.LLM.APIKey, cfg.LLM.Model)
+		providerConfigs := []services.ProviderConfig{
+			{Provider: cfg.LLM.Provider, APIKey: cfg.LLM.APIKey, Model: cfg.LLM.Model},
+		}
+		for _, fb := range cfg.LLM.Fallbacks {
+			providerConfigs = append(providerConfigs, services.ProviderConfig{
+				Provider: fb.Provider,
+				APIKey:   fb.APIKey,
+				Model:    fb.Model,
+			})
+		}
+		aiService, err = services.NewAIServiceWithFallbacks(providerConfigs)
 		if err != nil {
 			log.Printf("Warning: Failed to initialize AI service: %v", err)
 			log.Println("Transactions will be stored without AI extraction")
 		} else {
-			log.Printf("AI service initialized: provider=%s, model=%s", cfg.LLM.Provider, cfg.LLM.Model)
+			log.Printf("AI service initialized: provider=%s, model=%s, fallbacks=%d", cfg.LLM.Provider, cfg.LLM.Model, len(cfg.LLM.Fallbacks))
 			// Create transaction processor with 0.9 confidence threshold
 			processor = services.NewTransactionProcessor(smsParser, aiService, txRepo, catRepo, smsRepo, aiCallRepo, 0.9)
 		}

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -87,6 +88,41 @@ func (p *nvidiaProvider) generateText(ctx context.Context, prompt string) (strin
 	return result.Choices[0].Message.Content, nil
 }
 
+// ProviderConfig holds configuration for a single LLM provider.
+type ProviderConfig struct {
+	Provider string
+	APIKey   string
+	Model    string
+}
+
+// buildProvider creates an llmProvider from provider/apiKey/model.
+func buildProvider(provider, apiKey, model string) (llmProvider, error) {
+	switch provider {
+	case "openai":
+		llm, err := openai.New(
+			openai.WithToken(apiKey),
+			openai.WithModel(model),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize OpenAI LLM: %w", err)
+		}
+		return &langchainProvider{llm: llm}, nil
+	case "anthropic":
+		llm, err := anthropic.New(
+			anthropic.WithToken(apiKey),
+			anthropic.WithModel(model),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize Anthropic LLM: %w", err)
+		}
+		return &langchainProvider{llm: llm}, nil
+	case "nvidia":
+		return &nvidiaProvider{apiKey: apiKey, model: model, baseURL: nvidiaBaseURL}, nil
+	default:
+		return nil, fmt.Errorf("unsupported LLM provider: %s", provider)
+	}
+}
+
 // TransactionData represents the structured output from AI extraction
 type TransactionData struct {
 	Amount      float64 `json:"amount"`
@@ -102,49 +138,62 @@ type LLMCallMeta struct {
 	Prompt      string
 	RawResponse string
 	DurationMs  int64
+	Provider    string // actual provider used (may be a fallback)
+	Model       string // actual model used (may be a fallback)
 }
 
 // AIService handles LLM interactions for transaction extraction
 type AIService struct {
-	llm      llmProvider
-	Model    string
-	Provider string
+	providers []llmProvider
+	configs   []ProviderConfig
+	Model     string // primary model name
+	Provider  string // primary provider name
 }
 
-// NewAIService creates a new AI service with the specified provider
+// NewAIService creates an AI service with a single provider (no fallbacks).
 func NewAIService(provider, apiKey, model string) (*AIService, error) {
-	var lp llmProvider
+	return NewAIServiceWithFallbacks([]ProviderConfig{{Provider: provider, APIKey: apiKey, Model: model}})
+}
 
-	switch provider {
-	case "openai":
-		llm, err := openai.New(
-			openai.WithToken(apiKey),
-			openai.WithModel(model),
-		)
+// NewAIServiceWithFallbacks creates an AI service that tries each provider in order on failure.
+func NewAIServiceWithFallbacks(configs []ProviderConfig) (*AIService, error) {
+	if len(configs) == 0 {
+		return nil, fmt.Errorf("at least one provider config is required")
+	}
+
+	providers := make([]llmProvider, 0, len(configs))
+	for _, cfg := range configs {
+		lp, err := buildProvider(cfg.Provider, cfg.APIKey, cfg.Model)
 		if err != nil {
-			return nil, fmt.Errorf("failed to initialize LLM: %w", err)
+			return nil, fmt.Errorf("failed to initialize provider %s/%s: %w", cfg.Provider, cfg.Model, err)
 		}
-		lp = &langchainProvider{llm: llm}
-	case "anthropic":
-		llm, err := anthropic.New(
-			anthropic.WithToken(apiKey),
-			anthropic.WithModel(model),
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to initialize LLM: %w", err)
-		}
-		lp = &langchainProvider{llm: llm}
-	case "nvidia":
-		lp = &nvidiaProvider{apiKey: apiKey, model: model, baseURL: nvidiaBaseURL}
-	default:
-		return nil, fmt.Errorf("unsupported LLM provider: %s", provider)
+		providers = append(providers, lp)
 	}
 
 	return &AIService{
-		llm:      lp,
-		Model:    model,
-		Provider: provider,
+		providers: providers,
+		configs:   configs,
+		Provider:  configs[0].Provider,
+		Model:     configs[0].Model,
 	}, nil
+}
+
+// generateWithFallback tries each provider in order and returns on the first success.
+func (s *AIService) generateWithFallback(ctx context.Context, prompt string) (string, *ProviderConfig, error) {
+	var lastErr error
+	for i, p := range s.providers {
+		cfg := &s.configs[i]
+		response, err := p.generateText(ctx, prompt)
+		if err == nil {
+			if i > 0 {
+				log.Printf("AI fallback succeeded with provider=%s model=%s", cfg.Provider, cfg.Model)
+			}
+			return response, cfg, nil
+		}
+		log.Printf("AI provider=%s model=%s failed (attempt %d/%d): %v", cfg.Provider, cfg.Model, i+1, len(s.providers), err)
+		lastErr = err
+	}
+	return "", nil, fmt.Errorf("all %d AI provider(s) exhausted, last error: %w", len(s.providers), lastErr)
 }
 
 // ExtractTransaction uses LLM to extract transaction details from SMS
@@ -152,11 +201,15 @@ func (s *AIService) ExtractTransaction(ctx context.Context, smsMessage string) (
 	prompt := s.buildExtractionPrompt(smsMessage)
 
 	start := time.Now()
-	response, err := s.llm.generateText(ctx, prompt)
+	response, usedCfg, err := s.generateWithFallback(ctx, prompt)
 	meta := &LLMCallMeta{
 		Prompt:      prompt,
 		RawResponse: response,
 		DurationMs:  time.Since(start).Milliseconds(),
+	}
+	if usedCfg != nil {
+		meta.Provider = usedCfg.Provider
+		meta.Model = usedCfg.Model
 	}
 	if err != nil {
 		return nil, meta, fmt.Errorf("LLM generation failed: %w", err)
