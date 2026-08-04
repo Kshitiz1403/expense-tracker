@@ -90,6 +90,26 @@ type AICall struct {
 	CreatedAt     time.Time  `json:"createdAt"`
 }
 
+type Trip struct {
+	ID           uuid.UUID      `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
+	Name         string         `gorm:"type:varchar(255);not null" json:"name"`
+	Description  *string        `gorm:"type:text" json:"description"`
+	StartDate    time.Time      `gorm:"not null" json:"startDate"`
+	EndDate      time.Time      `gorm:"not null" json:"endDate"`
+	Transactions []Transaction  `gorm:"many2many:transaction_trips;" json:"transactions,omitempty"`
+	CreatedAt    time.Time      `json:"createdAt"`
+	UpdatedAt    time.Time      `json:"updatedAt"`
+	DeletedAt    gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+type TransactionTrip struct {
+	TripID        uuid.UUID `gorm:"type:uuid;primary_key" json:"tripId"`
+	TransactionID uuid.UUID `gorm:"type:uuid;primary_key" json:"transactionId"`
+	CreatedAt     time.Time `json:"createdAt"`
+}
+
+func (TransactionTrip) TableName() string { return "transaction_trips" }
+
 // BeforeCreate hook to set UUID
 func (d *DataSource) BeforeCreate(tx *gorm.DB) error {
 	if d.ID == uuid.Nil {
@@ -122,6 +142,13 @@ func (t *Transaction) BeforeCreate(tx *gorm.DB) error {
 func (a *AICall) BeforeCreate(tx *gorm.DB) error {
 	if a.ID == uuid.Nil {
 		a.ID = uuid.New()
+	}
+	return nil
+}
+
+func (t *Trip) BeforeCreate(tx *gorm.DB) error {
+	if t.ID == uuid.Nil {
+		t.ID = uuid.New()
 	}
 	return nil
 }

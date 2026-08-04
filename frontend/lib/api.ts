@@ -129,6 +129,9 @@ class APIClient {
         method: 'PUT',
       }),
 
+    getTrips: (id: string) =>
+      this.request<{ trips: Trip[] }>(`/api/transactions/${id}/trips`),
+
     export: (params?: ExportTransactionParams): Promise<Blob> => {
       const query = new URLSearchParams();
       if (params?.type) query.set('type', params.type);
@@ -180,6 +183,62 @@ class APIClient {
         method: 'POST',
         body: JSON.stringify(data),
       }),
+  };
+
+  // Trips API
+  trips = {
+    list: (params?: TripListParams) => {
+      const query = new URLSearchParams();
+      if (params?.page) query.set('page', params.page.toString());
+      if (params?.limit) query.set('limit', params.limit.toString());
+      const qs = query.toString();
+      return this.request<TripListResponse>(`/api/trips${qs ? `?${qs}` : ''}`);
+    },
+
+    getById: (id: string) =>
+      this.request<Trip>(`/api/trips/${id}`),
+
+    create: (data: CreateTripInput) =>
+      this.request<Trip>('/api/trips', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    update: (id: string, data: UpdateTripInput) =>
+      this.request<Trip>(`/api/trips/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }),
+
+    delete: (id: string) =>
+      this.request<{ message: string }>(`/api/trips/${id}`, {
+        method: 'DELETE',
+      }),
+
+    getTransactions: (id: string, params?: { page?: number; limit?: number }) => {
+      const query = new URLSearchParams();
+      if (params?.page) query.set('page', params.page.toString());
+      if (params?.limit) query.set('limit', params.limit.toString());
+      const qs = query.toString();
+      return this.request<TripTransactionListResponse>(
+        `/api/trips/${id}/transactions${qs ? `?${qs}` : ''}`
+      );
+    },
+
+    addTransaction: (tripId: string, transactionId: string) =>
+      this.request<{ message: string }>(`/api/trips/${tripId}/transactions`, {
+        method: 'POST',
+        body: JSON.stringify({ transaction_id: transactionId }),
+      }),
+
+    removeTransaction: (tripId: string, transactionId: string) =>
+      this.request<{ message: string }>(
+        `/api/trips/${tripId}/transactions/${transactionId}`,
+        { method: 'DELETE' }
+      ),
+
+    getSummary: (id: string) =>
+      this.request<TripSummary>(`/api/trips/${id}/summary`),
   };
 
   // Health API
@@ -378,4 +437,66 @@ export interface SMSExtractResult {
   categoryId?: string;
   description: string;
   confidence: number;
+}
+
+export interface Trip {
+  id: string;
+  name: string;
+  description?: string;
+  startDate: string;
+  endDate: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TripListResponse {
+  trips: Trip[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface CreateTripInput {
+  name: string;
+  description?: string;
+  start_date: string;
+  end_date: string;
+}
+
+export interface UpdateTripInput {
+  name?: string;
+  description?: string;
+  start_date?: string;
+  end_date?: string;
+}
+
+export interface TripTransactionListResponse {
+  transactions: Transaction[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface TripCategoryBreakdown {
+  categoryId: string;
+  categoryName: string;
+  icon: string;
+  color: string;
+  totalAmount: number;
+  percentage: number;
+  count: number;
+}
+
+export interface TripSummary {
+  tripId: string;
+  tripName: string;
+  totalExpense: number;
+  totalIncome: number;
+  transactionCount: number;
+  categoryBreakdown: TripCategoryBreakdown[];
+}
+
+export interface TripListParams {
+  page?: number;
+  limit?: number;
 }

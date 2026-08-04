@@ -27,6 +27,27 @@ type MerchantBreakdown struct {
 	Count       int     `json:"count"`
 }
 
+// TripCategoryBreakdown holds expense totals per category within a trip
+type TripCategoryBreakdown struct {
+	CategoryID   string  `json:"categoryId"`
+	CategoryName string  `json:"categoryName"`
+	Icon         string  `json:"icon"`
+	Color        string  `json:"color"`
+	TotalAmount  float64 `json:"totalAmount"`
+	Percentage   float64 `json:"percentage"`
+	Count        int     `json:"count"`
+}
+
+// TripSummary is the analytics response for GET /api/trips/:id/summary
+type TripSummary struct {
+	TripID            string                  `json:"tripId"`
+	TripName          string                  `json:"tripName"`
+	TotalExpense      float64                 `json:"totalExpense"`
+	TotalIncome       float64                 `json:"totalIncome"`
+	TransactionCount  int                     `json:"transactionCount"`
+	CategoryBreakdown []TripCategoryBreakdown `json:"categoryBreakdown"`
+}
+
 // AnalyticsSummary is the response for GET /api/analytics/summary
 type AnalyticsSummary struct {
 	DateFrom string `json:"dateFrom"`

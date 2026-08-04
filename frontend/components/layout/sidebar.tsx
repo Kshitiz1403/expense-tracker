@@ -11,6 +11,7 @@ import {
   Settings,
   AlertCircle,
   MessageSquare,
+  Map,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -26,6 +27,11 @@ const navItems = [
     title: "Transactions",
     href: "/transactions",
     icon: Receipt,
+  },
+  {
+    title: "Trips",
+    href: "/trips",
+    icon: Map,
   },
   {
     title: "Review Queue",
