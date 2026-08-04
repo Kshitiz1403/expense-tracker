@@ -42,6 +42,8 @@ func main() {
 		&models.SMSMessage{},
 		&models.Transaction{},
 		&models.AICall{},
+		&models.Trip{},
+		&models.TransactionTrip{},
 	); err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
@@ -59,6 +61,7 @@ func main() {
 	catRepo := repository.NewCategoryRepository(db)
 	aiCallRepo := repository.NewAICallRepository(db)
 	analyticsRepo := repository.NewAnalyticsRepository(db)
+	tripRepo := repository.NewTripRepository(db)
 
 	// Initialize services
 	smsParser := services.NewSMSParser()
@@ -118,9 +121,10 @@ func main() {
 	authHandler := handlers.NewAuthHandler(&cfg.Auth)
 	webhookHandler := handlers.NewWebhookHandler(smsRepo, processor, taskClient, cfg.SMS.WebhookID)
 	categoryHandler := handlers.NewCategoryHandler(catRepo)
-	transactionHandler := handlers.NewTransactionHandler(txRepo, catRepo)
+	transactionHandler := handlers.NewTransactionHandler(txRepo, catRepo, tripRepo)
 	analyticsHandler := handlers.NewAnalyticsHandler(analyticsRepo)
 	smsHandler := handlers.NewSMSHandler(smsRepo, txRepo, catRepo, aiCallRepo, aiService)
+	tripHandler := handlers.NewTripHandler(tripRepo)
 
 	// Initialize Gin router
 	router := gin.Default()
@@ -180,10 +184,25 @@ func main() {
 				transactions.GET("/export", transactionHandler.ExportTransactions)
 				transactions.GET("/review", transactionHandler.GetReviewQueue)
 				transactions.GET("/:id", transactionHandler.GetTransaction)
+				transactions.GET("/:id/trips", transactionHandler.GetTransactionTrips)
 				transactions.POST("", transactionHandler.CreateTransaction)
 				transactions.PUT("/:id", transactionHandler.UpdateTransaction)
 				transactions.PUT("/:id/approve", transactionHandler.ApproveTransaction)
 				transactions.DELETE("/:id", transactionHandler.DeleteTransaction)
+			}
+
+			// Trips
+			trips := protected.Group("/trips")
+			{
+				trips.GET("", tripHandler.ListTrips)
+				trips.POST("", tripHandler.CreateTrip)
+				trips.GET("/:id", tripHandler.GetTrip)
+				trips.PUT("/:id", tripHandler.UpdateTrip)
+				trips.DELETE("/:id", tripHandler.DeleteTrip)
+				trips.GET("/:id/transactions", tripHandler.GetTripTransactions)
+				trips.POST("/:id/transactions", tripHandler.AddTransactionToTrip)
+				trips.DELETE("/:id/transactions/:tx_id", tripHandler.RemoveTransactionFromTrip)
+				trips.GET("/:id/summary", tripHandler.GetTripSummary)
 			}
 
 			// Analytics

@@ -14,14 +14,16 @@ import (
 )
 
 type TransactionHandler struct {
-	txRepo  *repository.TransactionRepository
-	catRepo *repository.CategoryRepository
+	txRepo   *repository.TransactionRepository
+	catRepo  *repository.CategoryRepository
+	tripRepo *repository.TripRepository
 }
 
-func NewTransactionHandler(txRepo *repository.TransactionRepository, catRepo *repository.CategoryRepository) *TransactionHandler {
+func NewTransactionHandler(txRepo *repository.TransactionRepository, catRepo *repository.CategoryRepository, tripRepo *repository.TripRepository) *TransactionHandler {
 	return &TransactionHandler{
-		txRepo:  txRepo,
-		catRepo: catRepo,
+		txRepo:   txRepo,
+		catRepo:  catRepo,
+		tripRepo: tripRepo,
 	}
 }
 
@@ -366,6 +368,24 @@ func (h *TransactionHandler) ExportTransactions(c *gin.Context) {
 	}
 
 	w.Flush()
+}
+
+// GetTransactionTrips returns all trips a transaction belongs to.
+// GET /api/transactions/:id/trips
+func (h *TransactionHandler) GetTransactionTrips(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid transaction ID"})
+		return
+	}
+
+	trips, err := h.tripRepo.GetTripsForTransaction(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch trips"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"trips": trips})
 }
 
 // Helper function to parse transaction date

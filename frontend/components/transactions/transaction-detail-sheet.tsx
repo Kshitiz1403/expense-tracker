@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MessageSquare, Calendar, Tag, Building2, Smartphone, FileText } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { MessageSquare, Calendar, Tag, Building2, Smartphone, FileText, Map, X } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -11,7 +12,15 @@ import {
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { api, Transaction } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { api, Transaction, Trip } from "@/lib/api";
 
 interface TransactionDetailSheetProps {
   transactionId: string | null;
@@ -22,21 +31,61 @@ export function TransactionDetailSheet({
   transactionId,
   onClose,
 }: TransactionDetailSheetProps) {
+  const router = useRouter();
   const [transaction, setTransaction] = useState<Transaction | null>(null);
   const [loading, setLoading] = useState(false);
+  const [linkedTrips, setLinkedTrips] = useState<Trip[]>([]);
+  const [allTrips, setAllTrips] = useState<Trip[]>([]);
+  const [addingTripId, setAddingTripId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!transactionId) {
       setTransaction(null);
+      setLinkedTrips([]);
       return;
     }
     setLoading(true);
-    api.transactions
-      .getById(transactionId)
-      .then(setTransaction)
+    Promise.all([
+      api.transactions.getById(transactionId),
+      api.transactions.getTrips(transactionId),
+      api.trips.list({ limit: 100 }),
+    ])
+      .then(([tx, tripsRes, allTripsRes]) => {
+        setTransaction(tx);
+        setLinkedTrips(tripsRes.trips ?? []);
+        setAllTrips(allTripsRes.trips ?? []);
+      })
       .catch(() => setTransaction(null))
       .finally(() => setLoading(false));
   }, [transactionId]);
+
+  async function handleAddToTrip(tripId: string) {
+    if (!transactionId) return;
+    setAddingTripId(tripId);
+    try {
+      await api.trips.addTransaction(tripId, transactionId);
+      const res = await api.transactions.getTrips(transactionId);
+      setLinkedTrips(res.trips ?? []);
+    } catch {
+      // noop
+    } finally {
+      setAddingTripId(null);
+    }
+  }
+
+  async function handleRemoveFromTrip(tripId: string) {
+    if (!transactionId) return;
+    try {
+      await api.trips.removeTransaction(tripId, transactionId);
+      setLinkedTrips((prev) => prev.filter((t) => t.id !== tripId));
+    } catch {
+      // noop
+    }
+  }
+
+  const unlinkedTrips = allTrips.filter(
+    (t) => !linkedTrips.some((lt) => lt.id === t.id)
+  );
 
   const formatDate = (dateString: string, includeTime = false) => {
     const date = new Date(dateString);
@@ -201,6 +250,53 @@ export function TransactionDetailSheet({
                 </div>
               </>
             )}
+
+            {/* Trips */}
+            <Separator />
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <Map className="h-4 w-4 text-gray-400" />
+                <span className="text-xs font-medium text-gray-500 uppercase">Trips</span>
+              </div>
+              {linkedTrips.length === 0 ? (
+                <p className="text-sm text-gray-400 mb-2">Not part of any trip.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {linkedTrips.map((t) => (
+                    <Badge
+                      key={t.id}
+                      variant="secondary"
+                      className="flex items-center gap-1 cursor-pointer hover:bg-accent"
+                      onClick={() => router.push(`/trips/${t.id}`)}
+                    >
+                      {t.name}
+                      <X
+                        className="h-3 w-3 ml-0.5 hover:text-destructive"
+                        onClick={(e) => { e.stopPropagation(); handleRemoveFromTrip(t.id); }}
+                      />
+                    </Badge>
+                  ))}
+                </div>
+              )}
+              {unlinkedTrips.length > 0 && (
+                <Select
+                  value=""
+                  onValueChange={(tripId) => { if (tripId) handleAddToTrip(tripId); }}
+                  disabled={addingTripId !== null}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder={addingTripId ? "Adding..." : "Add to trip…"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {unlinkedTrips.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
 
             {/* Metadata */}
             <Separator />
