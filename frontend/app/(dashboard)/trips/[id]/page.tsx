@@ -150,7 +150,7 @@ function EditTripDialog({
   );
 }
 
-// --- Add Transaction to Trip Dialog ---
+// --- Add Transactions to Trip Dialog (bulk) ---
 function AddTransactionDialog({
   tripId,
   open,
@@ -165,12 +165,13 @@ function AddTransactionDialog({
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
-  const [adding, setAdding] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [adding, setAdding] = useState(false);
 
   const doSearch = useCallback(async (q: string) => {
     setLoading(true);
     try {
-      const res = await api.transactions.list({ search: q, limit: 20, page: 1 });
+      const res = await api.transactions.list({ search: q, limit: 50, page: 1 });
       setResults(res.transactions ?? []);
     } catch {
       setResults([]);
@@ -180,33 +181,55 @@ function AddTransactionDialog({
   }, []);
 
   useEffect(() => {
-    if (open) doSearch("");
+    if (open) { setSelected(new Set()); doSearch(""); }
   }, [open, doSearch]);
 
   useEffect(() => {
-    const t = setTimeout(() => { if (open) doSearch(search); }, 300);
+    const t = setTimeout(() => { if (open) { setSelected(new Set()); doSearch(search); } }, 300);
     return () => clearTimeout(t);
   }, [search, open, doSearch]);
 
-  async function handleAdd(txId: string) {
-    setAdding(txId);
+  function toggleOne(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    if (selected.size === results.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(results.map((t) => t.id)));
+    }
+  }
+
+  async function handleAddSelected() {
+    if (selected.size === 0) return;
+    setAdding(true);
     try {
-      await api.trips.addTransaction(tripId, txId);
+      await Promise.all([...selected].map((id) => api.trips.addTransaction(tripId, id)));
       onAdded();
       onOpenChange(false);
     } catch {
       // noop
     } finally {
-      setAdding(null);
+      setAdding(false);
     }
   }
+
+  const allSelected = results.length > 0 && selected.size === results.length;
+  const someSelected = selected.size > 0 && selected.size < results.length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Add Transaction to Trip</DialogTitle>
+          <DialogTitle>Add Transactions to Trip</DialogTitle>
         </DialogHeader>
+
+        {/* Search */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -216,16 +239,49 @@ function AddTransactionDialog({
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="max-h-80 overflow-y-auto space-y-1">
+
+        {/* Select all row */}
+        {!loading && results.length > 0 && (
+          <div className="flex items-center gap-2 px-2 py-1 border-b">
+            <input
+              type="checkbox"
+              checked={allSelected}
+              ref={(el) => { if (el) el.indeterminate = someSelected; }}
+              onChange={toggleAll}
+              className="h-4 w-4 cursor-pointer accent-primary"
+            />
+            <span className="text-xs text-muted-foreground">
+              {selected.size > 0
+                ? `${selected.size} of ${results.length} selected`
+                : `Select all (${results.length})`}
+            </span>
+          </div>
+        )}
+
+        {/* Transaction list */}
+        <div className="max-h-72 overflow-y-auto space-y-0.5">
           {loading ? (
             Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="h-10 rounded bg-muted animate-pulse" />
+              <div key={i} className="h-10 rounded bg-muted animate-pulse mx-2" />
             ))
           ) : results.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-6">No transactions found.</p>
           ) : (
             results.map((tx) => (
-              <div key={tx.id} className="flex items-center justify-between gap-2 rounded-md px-2 py-2 hover:bg-accent">
+              <div
+                key={tx.id}
+                onClick={() => toggleOne(tx.id)}
+                className={`flex items-center gap-3 rounded-md px-2 py-2 cursor-pointer transition-colors ${
+                  selected.has(tx.id) ? "bg-accent" : "hover:bg-accent/50"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={selected.has(tx.id)}
+                  onChange={() => toggleOne(tx.id)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="h-4 w-4 shrink-0 cursor-pointer accent-primary"
+                />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{tx.description}</p>
                   <p className="text-xs text-muted-foreground">
@@ -235,19 +291,24 @@ function AddTransactionDialog({
                 <span className={`text-sm font-semibold shrink-0 ${tx.type === "expense" ? "text-red-600" : "text-green-600"}`}>
                   {tx.type === "expense" ? "-" : "+"}₹{fmt(tx.amount)}
                 </span>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={adding === tx.id}
-                  onClick={() => handleAdd(tx.id)}
-                  className="shrink-0"
-                >
-                  {adding === tx.id ? "Adding..." : "Add"}
-                </Button>
               </div>
             ))
           )}
         </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button
+            disabled={selected.size === 0 || adding}
+            onClick={handleAddSelected}
+          >
+            {adding
+              ? "Adding..."
+              : selected.size === 0
+              ? "Select transactions"
+              : `Add ${selected.size} transaction${selected.size !== 1 ? "s" : ""}`}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
