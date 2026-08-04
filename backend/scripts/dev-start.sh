@@ -8,8 +8,8 @@ echo "=================================================="
 echo "Stopping existing containers..."
 docker compose -f docker-compose.dev.yml down
 
-# Start PostgreSQL and Redis only
-echo "Starting PostgreSQL and Redis..."
+# Start PostgreSQL only
+echo "Starting PostgreSQL..."
 docker compose -f docker-compose.dev.yml up -d
 
 # Wait for services to be healthy
@@ -24,20 +24,12 @@ else
     exit 1
 fi
 
-if docker ps | grep -q expense_tracker_redis; then
-    echo "✅ Redis is running"
-else
-    echo "❌ Redis failed to start"
-    exit 1
-fi
-
 echo ""
 echo "=================================================="
 echo "✅ Development environment ready!"
 echo ""
 echo "Services running:"
 echo "  - PostgreSQL: localhost:5432"
-echo "  - Redis: localhost:6379"
 echo ""
 echo "Run your Go backend with:"
 echo "  go run cmd/api/main.go"
