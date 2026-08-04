@@ -15,6 +15,7 @@ import {
   Settings,
   AlertCircle,
   MessageSquare,
+  Map,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -24,6 +25,7 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { title: "Analytics", href: "/analytics", icon: BarChart3 },
   { title: "Transactions", href: "/transactions", icon: Receipt },
+  { title: "Trips", href: "/trips", icon: Map },
   { title: "Review Queue", href: "/review", icon: AlertCircle },
   { title: "SMS Messages", href: "/sms", icon: MessageSquare },
   { title: "Categories", href: "/categories", icon: Tag },
