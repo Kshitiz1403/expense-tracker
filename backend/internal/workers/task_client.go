@@ -22,7 +22,7 @@ func NewTaskClient(riverClient *river.Client[pgx.Tx]) *TaskClient {
 func (c *TaskClient) EnqueueProcessSMS(ctx context.Context, smsID uuid.UUID) error {
 	_, err := c.riverClient.Insert(ctx, ProcessSMSArgs{SMSID: smsID}, &river.InsertOpts{
 		Queue:       "sms",
-		MaxAttempts: 30,
+		MaxAttempts: 50,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to enqueue SMS job: %w", err)
