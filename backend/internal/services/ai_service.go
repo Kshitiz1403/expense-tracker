@@ -238,7 +238,7 @@ Return only valid JSON:`, smsMessage)
 }
 
 func (s *AIService) validateTransaction(tx *TransactionData) error {
-	if tx.Amount <= 0 {
+	if tx.Amount < 0 {
 		return fmt.Errorf("invalid amount: %f", tx.Amount)
 	}
 
