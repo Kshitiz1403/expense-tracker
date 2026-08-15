@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"expense-tracker/internal/models"
 	"expense-tracker/internal/repository"
 	"fmt"
@@ -90,6 +91,15 @@ func (p *TransactionProcessor) ProcessSMS(ctx context.Context, smsID uuid.UUID) 
 	}
 
 	if err != nil {
+		if errors.Is(err, ErrNotATransaction) {
+			// AI determined this is not a financial transaction — mark processed and move on.
+			reason := "AI: not a transaction (confidence=0)"
+			aiCall.Error = &reason
+			p.aiCallRepo.Create(aiCall)
+			log.Printf("SMS %s is not a transaction per AI, skipping", smsID)
+			p.smsRepo.MarkAsProcessed(smsID, &reason)
+			return nil
+		}
 		errorMsg := fmt.Sprintf("AI extraction failed: %v", err)
 		errStr := err.Error()
 		aiCall.Error = &errStr

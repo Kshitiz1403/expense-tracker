@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,6 +15,9 @@ import (
 	"github.com/tmc/langchaingo/llms/anthropic"
 	"github.com/tmc/langchaingo/llms/openai"
 )
+
+// ErrNotATransaction is returned when the AI determines the message is not a financial transaction.
+var ErrNotATransaction = errors.New("not a transaction")
 
 const nvidiaBaseURL = "https://integrate.api.nvidia.com/v1"
 
@@ -169,6 +173,11 @@ func (s *AIService) ExtractTransaction(ctx context.Context, smsMessage string) (
 	var txData TransactionData
 	if err := json.Unmarshal([]byte(jsonStr), &txData); err != nil {
 		return nil, meta, fmt.Errorf("failed to parse LLM response: %w (response: %s)", err, jsonStr)
+	}
+
+	// A confidence of 0 means the AI determined this is not a transaction at all.
+	if txData.Confidence == 0 {
+		return nil, meta, ErrNotATransaction
 	}
 
 	// Validate extracted data
