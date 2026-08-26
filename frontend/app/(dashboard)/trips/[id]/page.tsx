@@ -520,7 +520,7 @@ export default function TripDetailPage() {
                         </span>
                       </div>
                     </div>
-                    <div className="w-full bg-gray-100 rounded-full h-2">
+                    <div className="w-full bg-muted rounded-full h-2">
                       <div
                         className="h-2 rounded-full transition-all"
                         style={{ width: `${Math.min(cat.percentage, 100)}%`, backgroundColor: color }}

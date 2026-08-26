@@ -37,7 +37,7 @@ export default function CategoriesPage() {
     return (
       <div className="space-y-6">
         <h1 className="text-2xl md:text-3xl font-bold">Categories</h1>
-        <div className="text-center py-12 text-gray-500">
+        <div className="text-center py-12 text-muted-foreground">
           Loading categories...
         </div>
       </div>
@@ -61,7 +61,7 @@ export default function CategoriesPage() {
       <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:justify-between">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold">Categories</h1>
-          <p className="text-gray-600 mt-1">
+          <p className="text-muted-foreground mt-1">
             Manage your income and expense categories
           </p>
         </div>
@@ -75,7 +75,7 @@ export default function CategoriesPage() {
 
       {categories.length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center text-gray-500">
+          <CardContent className="py-12 text-center text-muted-foreground">
             No categories found. Create your first category to get started!
           </CardContent>
         </Card>
@@ -94,14 +94,14 @@ export default function CategoriesPage() {
             <CardContent>
               <div className="space-y-2">
                 {expenseCategories.length === 0 ? (
-                  <p className="text-sm text-gray-500 py-4 text-center">
+                  <p className="text-sm text-muted-foreground py-4 text-center">
                     No expense categories
                   </p>
                 ) : (
                   expenseCategories.map((category) => (
                     <div
                       key={category.id}
-                      className="flex items-center justify-between p-3 rounded-lg border hover:border-gray-300 transition-colors"
+                      className="flex items-center justify-between p-3 rounded-lg border hover:border-border transition-colors"
                     >
                       <div className="flex items-center gap-3">
                         <div
@@ -113,7 +113,7 @@ export default function CategoriesPage() {
                         <div>
                           <div className="font-medium">{category.name}</div>
                           {category.monthlyBudget && (
-                            <div className="text-sm text-gray-500">
+                            <div className="text-sm text-muted-foreground">
                               Budget: ₹{category.monthlyBudget.toLocaleString("en-IN")}
                             </div>
                           )}
@@ -144,14 +144,14 @@ export default function CategoriesPage() {
             <CardContent>
               <div className="space-y-2">
                 {incomeCategories.length === 0 ? (
-                  <p className="text-sm text-gray-500 py-4 text-center">
+                  <p className="text-sm text-muted-foreground py-4 text-center">
                     No income categories
                   </p>
                 ) : (
                   incomeCategories.map((category) => (
                     <div
                       key={category.id}
-                      className="flex items-center justify-between p-3 rounded-lg border hover:border-gray-300 transition-colors"
+                      className="flex items-center justify-between p-3 rounded-lg border hover:border-border transition-colors"
                     >
                       <div className="flex items-center gap-3">
                         <div
