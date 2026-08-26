@@ -145,14 +145,14 @@ export default function AnalyticsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Analytics</h1>
+          <h1 className="text-2xl md:text-3xl font-bold">Analytics</h1>
           <p className="text-gray-600 mt-1">Insights into your spending patterns</p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap justify-end">
+        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
           <Select value={preset} onValueChange={(v) => setPreset(v as PresetKey)}>
-            <SelectTrigger className="w-44">
+            <SelectTrigger className="w-full sm:w-44">
               <SelectValue>{selectedPreset.label}</SelectValue>
             </SelectTrigger>
             <SelectContent>
@@ -165,7 +165,7 @@ export default function AnalyticsPage() {
             <>
               <Input
                 type="date"
-                className="w-36"
+                className="w-full sm:w-36"
                 value={customFrom}
                 max={customTo || undefined}
                 onChange={(e) => setCustomFrom(e.target.value)}
@@ -173,7 +173,7 @@ export default function AnalyticsPage() {
               <span className="text-sm text-gray-500">to</span>
               <Input
                 type="date"
-                className="w-36"
+                className="w-full sm:w-36"
                 value={customTo}
                 min={customFrom || undefined}
                 onChange={(e) => setCustomTo(e.target.value)}

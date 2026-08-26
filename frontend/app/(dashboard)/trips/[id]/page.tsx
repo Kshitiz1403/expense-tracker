@@ -393,7 +393,7 @@ export default function TripDetailPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6 p-6">
+      <div className="space-y-6">
         <div className="h-8 w-48 bg-muted animate-pulse rounded" />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {Array.from({ length: 3 }).map((_, i) => (
@@ -407,7 +407,7 @@ export default function TripDetailPage() {
 
   if (!trip) {
     return (
-      <div className="flex flex-col items-center justify-center gap-3 py-20 p-6">
+      <div className="flex flex-col items-center justify-center gap-3 py-20">
         <p className="text-lg font-medium">Trip not found</p>
         <Button variant="outline" onClick={() => router.push("/trips")}>
           <ArrowLeft className="mr-2 h-4 w-4" /> Back to Trips
@@ -417,17 +417,17 @@ export default function TripDetailPage() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-start gap-3">
-          <Button variant="ghost" size="icon" onClick={() => router.push("/trips")}>
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+        <div className="flex items-start gap-3 min-w-0">
+          <Button variant="ghost" size="icon" className="shrink-0 mt-0.5" onClick={() => router.push("/trips")}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <div>
-            <h1 className="text-2xl font-semibold">{trip.name}</h1>
+          <div className="min-w-0">
+            <h1 className="text-xl md:text-2xl font-semibold truncate">{trip.name}</h1>
             <div className="flex items-center gap-1.5 mt-1 text-sm text-muted-foreground">
-              <CalendarRange className="h-4 w-4" />
+              <CalendarRange className="h-4 w-4 shrink-0" />
               <span>{formatDate(trip.startDate)} – {formatDate(trip.endDate)}</span>
             </div>
             {trip.description && (
@@ -435,7 +435,7 @@ export default function TripDetailPage() {
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 pl-10 sm:pl-0">
           <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
             <Pencil className="mr-2 h-3.5 w-3.5" /> Edit
           </Button>
@@ -536,8 +536,8 @@ export default function TripDetailPage() {
 
       {/* Transactions Table */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-3">
-          <CardTitle className="flex items-center gap-2">
+        <CardHeader className="flex flex-row items-center justify-between pb-3 gap-2">
+          <CardTitle className="flex items-center gap-2 text-base md:text-lg">
             <Receipt className="h-5 w-5" />
             Transactions
             {txTotal > 0 && (
@@ -545,7 +545,9 @@ export default function TripDetailPage() {
             )}
           </CardTitle>
           <Button size="sm" onClick={() => setAddOpen(true)}>
-            <Plus className="mr-2 h-3.5 w-3.5" /> Add Transaction
+            <Plus className="mr-2 h-3.5 w-3.5" />
+            <span className="hidden xs:inline">Add Transaction</span>
+            <span className="xs:hidden">Add</span>
           </Button>
         </CardHeader>
         <CardContent className="p-0">
@@ -559,7 +561,44 @@ export default function TripDetailPage() {
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto">
+              {/* Mobile card list */}
+              <div className="md:hidden divide-y">
+                {transactions.map((tx) => (
+                  <div key={tx.id} className="px-4 py-3 flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate">{tx.description}</p>
+                      {tx.merchant && (
+                        <p className="text-xs text-muted-foreground">{tx.merchant}</p>
+                      )}
+                      <div className="flex flex-wrap items-center gap-2 mt-1">
+                        <span className="text-xs text-muted-foreground">{formatDate(tx.transactionDate)}</span>
+                        {tx.category && (
+                          <span className="text-xs text-muted-foreground">
+                            {tx.category.icon && <span className="mr-0.5">{tx.category.icon}</span>}
+                            {tx.category.name}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className={`text-sm font-semibold ${tx.type === "expense" ? "text-red-600" : "text-green-600"}`}>
+                        {tx.type === "expense" ? "-" : "+"}₹{fmt(tx.amount)}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                        disabled={removingId === tx.id}
+                        onClick={() => handleRemove(tx.id)}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {/* Desktop table */}
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-muted/50">
@@ -624,7 +663,8 @@ export default function TripDetailPage() {
               {txTotalPages > 1 && (
                 <div className="flex items-center justify-between px-4 py-3 border-t">
                   <p className="text-sm text-muted-foreground">
-                    {(txPage - 1) * txLimit + 1}–{Math.min(txPage * txLimit, txTotal)} of {txTotal}
+                    {txPage}/{txTotalPages}
+                    <span className="hidden sm:inline"> — {(txPage - 1) * txLimit + 1}–{Math.min(txPage * txLimit, txTotal)} of {txTotal}</span>
                   </p>
                   <div className="flex items-center gap-2">
                     <Button

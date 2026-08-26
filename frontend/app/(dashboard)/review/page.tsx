@@ -80,7 +80,7 @@ export default function ReviewQueuePage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <h1 className="text-3xl font-bold">Review Queue</h1>
+        <h1 className="text-2xl md:text-3xl font-bold">Review Queue</h1>
         <div className="text-center py-12 text-gray-500">
           Loading review queue...
         </div>
@@ -91,7 +91,7 @@ export default function ReviewQueuePage() {
   if (error) {
     return (
       <div className="space-y-6">
-        <h1 className="text-3xl font-bold">Review Queue</h1>
+        <h1 className="text-2xl md:text-3xl font-bold">Review Queue</h1>
         <div className="text-center py-12 text-red-500">
           {error}
         </div>
@@ -101,10 +101,10 @@ export default function ReviewQueuePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-start gap-4 sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <AlertCircle className="h-8 w-8 text-amber-600" />
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
+            <AlertCircle className="h-7 w-7 md:h-8 md:w-8 text-amber-600" />
             Review Queue
           </h1>
           <p className="text-gray-600">
@@ -112,7 +112,7 @@ export default function ReviewQueuePage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="text-right">
+          <div className="sm:text-right">
             <p className="text-sm text-gray-500">Pending Reviews</p>
             <p className="text-2xl font-bold text-amber-600">
               {transactions.length}
@@ -152,10 +152,10 @@ export default function ReviewQueuePage() {
           {transactions.map((transaction) => (
             <Card key={transaction.id} className="hover:shadow-md transition-shadow">
               <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3">
-                      <CardTitle className="text-lg">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <CardTitle className="text-base md:text-lg">
                         {transaction.description}
                       </CardTitle>
                       {transaction.aiConfidence &&
@@ -165,9 +165,9 @@ export default function ReviewQueuePage() {
                       {formatDate(transaction.transactionDate)} • {transaction.source.toUpperCase()}
                     </p>
                   </div>
-                  <div className="text-right">
+                  <div className="sm:text-right shrink-0">
                     <span
-                      className={`text-2xl font-bold tabular-nums ${
+                      className={`text-xl md:text-2xl font-bold tabular-nums ${
                         transaction.type === "income"
                           ? "text-green-600"
                           : "text-red-600"

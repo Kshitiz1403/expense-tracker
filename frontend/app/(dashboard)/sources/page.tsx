@@ -135,17 +135,17 @@ export default function DataSourcesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <Database className="h-8 w-8" />
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
+            <Database className="h-7 w-7 md:h-8 md:w-8" />
             Data Sources
           </h1>
           <p className="text-muted-foreground">
             Manage your transaction data sources and sync settings
           </p>
         </div>
-        <Button>
+        <Button className="w-full sm:w-auto">
           <Plus className="mr-2 h-4 w-4" />
           Add Source
         </Button>

@@ -233,16 +233,16 @@ function TripsPageContent() {
   }
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="flex flex-col gap-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Trips &amp; Events</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Group your spending by trips or events to track costs across categories.
           </p>
         </div>
-        <Button onClick={() => setCreateOpen(true)}>
+        <Button className="w-full sm:w-auto" onClick={() => setCreateOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
           New Trip
         </Button>
