@@ -112,7 +112,7 @@ export function EditCategoryDialog({
                 placeholder="🛒"
                 maxLength={2}
               />
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 Choose an emoji to represent this category
               </p>
             </div>
@@ -144,7 +144,7 @@ export function EditCategoryDialog({
             <div className="space-y-2">
               <Label htmlFor="budget">
                 Monthly Budget{" "}
-                <span className="text-gray-500">(Optional)</span>
+                <span className="text-muted-foreground">(Optional)</span>
               </Label>
               <Input
                 id="budget"

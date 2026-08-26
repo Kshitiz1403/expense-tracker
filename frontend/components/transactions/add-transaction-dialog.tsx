@@ -143,7 +143,7 @@ export function AddTransactionDialog({ onSuccess, children }: AddTransactionDial
             {/* Merchant (Optional) */}
             <div className="space-y-2">
               <Label htmlFor="merchant">
-                Merchant <span className="text-gray-500">(Optional)</span>
+                Merchant <span className="text-muted-foreground">(Optional)</span>
               </Label>
               <Input 
                 id="merchant" 

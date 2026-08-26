@@ -41,7 +41,7 @@ export default function LoginPage() {
     <Card className="w-full max-w-sm">
       <CardHeader className="text-center">
         <CardTitle className="text-2xl">Expense Tracker</CardTitle>
-        <p className="text-sm text-gray-500 mt-1">Sign in to your account</p>
+        <p className="text-sm text-muted-foreground mt-1">Sign in to your account</p>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">

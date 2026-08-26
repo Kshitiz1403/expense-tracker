@@ -145,10 +145,10 @@ function TransactionsPageContent() {
 
   const getSourceBadge = (source: string) => {
     const colors: Record<string, string> = {
-      sms: 'bg-blue-100 text-blue-700',
-      email: 'bg-purple-100 text-purple-700',
-      bank_statement: 'bg-green-100 text-green-700',
-      manual: 'bg-gray-100 text-gray-700',
+      sms: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+      email: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+      bank_statement: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+      manual: 'bg-muted text-muted-foreground',
     };
     return colors[source] || colors.manual;
   };
@@ -159,7 +159,7 @@ function TransactionsPageContent() {
       <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:justify-between">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold">Transactions</h1>
-          <p className="text-gray-600 mt-1">
+          <p className="text-muted-foreground mt-1">
             View and manage all your transactions
           </p>
         </div>
@@ -184,7 +184,7 @@ function TransactionsPageContent() {
         <CardContent className="pt-6">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search transactions..."
                 className="pl-10"
@@ -201,7 +201,7 @@ function TransactionsPageContent() {
       <Card>
         <CardContent className="p-0">
           {loading ? (
-            <div className="p-8 text-center text-gray-500">
+            <div className="p-8 text-center text-muted-foreground">
               Loading transactions...
             </div>
           ) : error ? (
@@ -209,7 +209,7 @@ function TransactionsPageContent() {
               {error}
             </div>
           ) : transactions.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
+            <div className="p-8 text-center text-muted-foreground">
               No transactions found. Create your first transaction or send an SMS webhook!
             </div>
           ) : (
@@ -219,14 +219,14 @@ function TransactionsPageContent() {
                 {transactions.map((tx) => (
                   <div
                     key={tx.id}
-                    className="p-4 space-y-2 cursor-pointer hover:bg-gray-50 transition-colors"
+                    className="p-4 space-y-2 cursor-pointer hover:bg-muted/50 transition-colors"
                     onClick={() => setSelectedTransactionId(tx.id)}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         <div className="font-medium text-sm truncate">{tx.description}</div>
                         {tx.merchant && (
-                          <div className="text-xs text-gray-500 mt-0.5">{tx.merchant}</div>
+                          <div className="text-xs text-muted-foreground mt-0.5">{tx.merchant}</div>
                         )}
                       </div>
                       <span
@@ -237,16 +237,16 @@ function TransactionsPageContent() {
                         {tx.type === "income" ? "+" : "-"}₹{tx.amount.toLocaleString("en-IN")}
                       </span>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                       <span>{formatDate(tx.transactionDate)}</span>
                       <Badge className={getSourceBadge(tx.source)}>{tx.source}</Badge>
-                      {tx.category?.name && <span className="text-gray-600">{tx.category.name}</span>}
+                      {tx.category?.name && <span className="text-foreground">{tx.category.name}</span>}
                       {tx.aiConfidence ? (
                         <Badge
                           className={
                             tx.aiConfidence >= 0.9
-                              ? "bg-green-100 text-green-700"
-                              : "bg-yellow-100 text-yellow-700"
+                              ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                              : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
                           }
                         >
                           {Math.round(tx.aiConfidence * 100)}%
@@ -270,27 +270,27 @@ function TransactionsPageContent() {
               {/* Desktop table */}
               <div className="hidden md:block overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-gray-50 border-b">
+                  <thead className="bg-muted/50 border-b">
                     <tr>
-                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">
+                      <th className="text-left py-3 px-4 text-xs font-medium text-muted-foreground uppercase">
                         Description
                       </th>
-                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">
+                      <th className="text-left py-3 px-4 text-xs font-medium text-muted-foreground uppercase">
                         Amount
                       </th>
-                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">
+                      <th className="text-left py-3 px-4 text-xs font-medium text-muted-foreground uppercase">
                         Category
                       </th>
-                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">
+                      <th className="text-left py-3 px-4 text-xs font-medium text-muted-foreground uppercase">
                         Date
                       </th>
-                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">
+                      <th className="text-left py-3 px-4 text-xs font-medium text-muted-foreground uppercase">
                         Source
                       </th>
-                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">
+                      <th className="text-left py-3 px-4 text-xs font-medium text-muted-foreground uppercase">
                         Confidence
                       </th>
-                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">
+                      <th className="text-left py-3 px-4 text-xs font-medium text-muted-foreground uppercase">
                         Actions
                       </th>
                     </tr>
@@ -299,20 +299,20 @@ function TransactionsPageContent() {
                     {transactions.map((tx) => (
                       <tr
                         key={tx.id}
-                        className="hover:bg-gray-50 transition-colors cursor-pointer"
+                        className="hover:bg-muted/50 transition-colors cursor-pointer"
                         onClick={() => setSelectedTransactionId(tx.id)}
                       >
                         <td className="py-3 px-4 max-w-xs">
                           <div>
                             <div className="font-medium text-sm">{tx.description}</div>
                             {tx.merchant && (
-                              <div className="text-xs text-gray-500 mt-0.5">
+                              <div className="text-xs text-muted-foreground mt-0.5">
                                 {tx.merchant}
                               </div>
                             )}
                             {tx.notes && (
                               <div
-                                className="text-xs text-gray-400 italic mt-0.5 truncate"
+                                className="text-xs text-muted-foreground italic mt-0.5 truncate"
                                 title={tx.notes}
                               >
                                 {tx.notes}
@@ -337,7 +337,7 @@ function TransactionsPageContent() {
                             {tx.category?.name || "-"}
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-sm text-gray-600">
+                        <td className="py-3 px-4 text-sm text-muted-foreground">
                           {formatDate(tx.transactionDate)}
                         </td>
                         <td className="py-3 px-4">
@@ -357,7 +357,7 @@ function TransactionsPageContent() {
                               {Math.round(tx.aiConfidence * 100)}%
                             </Badge>
                           ) : (
-                            <span className="text-gray-400 text-sm">-</span>
+                            <span className="text-muted-foreground text-sm">-</span>
                           )}
                         </td>
                         <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
@@ -389,7 +389,7 @@ function TransactionsPageContent() {
           )}
           {!loading && !error && totalPages > 1 && (
             <div className="flex items-center justify-between px-4 py-3 border-t">
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted-foreground">
                 {page}/{totalPages} <span className="hidden sm:inline">— {(page - 1) * limit + 1}–{Math.min(page * limit, total)} of {total}</span>
               </p>
               <div className="flex items-center gap-1">
@@ -411,7 +411,7 @@ function TransactionsPageContent() {
                     }, [])
                     .map((item, idx) =>
                       item === "..." ? (
-                        <span key={`ellipsis-${idx}`} className="px-2 text-gray-400 text-sm">…</span>
+                        <span key={`ellipsis-${idx}`} className="px-2 text-muted-foreground text-sm">…</span>
                       ) : (
                         <Button
                           key={item}

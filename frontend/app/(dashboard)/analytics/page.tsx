@@ -32,6 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { useTheme } from "next-themes";
 import { api, AnalyticsSummary } from "@/lib/api";
 
 const FALLBACK_COLORS = [
@@ -67,6 +68,8 @@ export default function AnalyticsPage() {
   const [preset, setPreset] = useState<PresetKey>("7d");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
 
   useEffect(() => {
     const load = async () => {
@@ -109,9 +112,9 @@ export default function AnalyticsPage() {
     <Card>
       <CardContent className="pt-6">
         <div className="animate-pulse space-y-2">
-          <div className="h-3 bg-gray-200 rounded w-1/2" />
-          <div className="h-7 bg-gray-200 rounded w-3/4" />
-          <div className="h-3 bg-gray-200 rounded w-1/3" />
+          <div className="h-3 bg-muted rounded w-1/2" />
+          <div className="h-7 bg-muted rounded w-3/4" />
+          <div className="h-3 bg-muted rounded w-1/3" />
         </div>
       </CardContent>
     </Card>
@@ -148,7 +151,7 @@ export default function AnalyticsPage() {
       <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:justify-between">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold">Analytics</h1>
-          <p className="text-gray-600 mt-1">Insights into your spending patterns</p>
+          <p className="text-muted-foreground mt-1">Insights into your spending patterns</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:justify-end">
           <Select value={preset} onValueChange={(v) => setPreset(v as PresetKey)}>
@@ -170,7 +173,7 @@ export default function AnalyticsPage() {
                 max={customTo || undefined}
                 onChange={(e) => setCustomFrom(e.target.value)}
               />
-              <span className="text-sm text-gray-500">to</span>
+              <span className="text-sm text-muted-foreground">to</span>
               <Input
                 type="date"
                 className="w-full sm:w-36"
@@ -197,7 +200,7 @@ export default function AnalyticsPage() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600">Income</p>
+                    <p className="text-sm text-muted-foreground">Income</p>
                     <p className="text-2xl font-bold text-green-600">
                       ₹{fmt(data?.totalIncome ?? 0)}
                     </p>
@@ -213,7 +216,7 @@ export default function AnalyticsPage() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600">Expense</p>
+                    <p className="text-sm text-muted-foreground">Expense</p>
                     <p className="text-2xl font-bold text-red-600">
                       ₹{fmt(data?.totalExpense ?? 0)}
                     </p>
@@ -229,7 +232,7 @@ export default function AnalyticsPage() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600">Savings Rate</p>
+                    <p className="text-sm text-muted-foreground">Savings Rate</p>
                     <p className="text-2xl font-bold">
                       {(data?.savingsRate ?? 0).toFixed(1)}%
                     </p>
@@ -238,7 +241,7 @@ export default function AnalyticsPage() {
                     <DollarSign className="h-6 w-6 text-blue-600" />
                   </div>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">
+                <p className="text-xs text-muted-foreground mt-2">
                   Net: ₹{fmt(data?.netSavings ?? 0)}
                 </p>
               </CardContent>
@@ -248,7 +251,7 @@ export default function AnalyticsPage() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600">Top Category</p>
+                    <p className="text-sm text-muted-foreground">Top Category</p>
                     <p className="text-2xl font-bold truncate max-w-[120px]">
                       {data?.topCategoryName || "—"}
                     </p>
@@ -257,7 +260,7 @@ export default function AnalyticsPage() {
                     <PieChart className="h-6 w-6 text-purple-600" />
                   </div>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">
+                <p className="text-xs text-muted-foreground mt-2">
                   {(data?.topCategoryPercentage ?? 0).toFixed(1)}% of expenses
                 </p>
               </CardContent>
@@ -276,19 +279,19 @@ export default function AnalyticsPage() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="h-[300px] animate-pulse bg-gray-100 rounded" />
+            <div className="h-[300px] animate-pulse bg-muted rounded" />
           ) : !hasData || data.monthlyBreakdown.length === 0 ? (
-            <div className="h-[300px] flex flex-col items-center justify-center text-gray-400 gap-2">
+            <div className="h-[300px] flex flex-col items-center justify-center text-muted-foreground gap-2">
               <BarChart3 className="h-12 w-12" />
               <p>No transactions yet for this period</p>
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={data.monthlyBreakdown} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="monthLabel" tick={{ fontSize: 12 }} />
+                <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "#374151" : "#f0f0f0"} />
+                <XAxis dataKey="monthLabel" tick={{ fontSize: 12, fill: isDark ? "#9ca3af" : "#6b7280" }} />
                 <YAxis
-                  tick={{ fontSize: 12 }}
+                  tick={{ fontSize: 12, fill: isDark ? "#9ca3af" : "#6b7280" }}
                   tickFormatter={(v) =>
                     `₹${v >= 1000 ? `${(v / 1000).toFixed(0)}K` : v}`
                   }
@@ -320,13 +323,13 @@ export default function AnalyticsPage() {
               <div className="space-y-3">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <div key={i} className="animate-pulse space-y-1">
-                    <div className="h-3 bg-gray-200 rounded w-1/2" />
-                    <div className="h-2 bg-gray-100 rounded" />
+                    <div className="h-3 bg-muted rounded w-1/2" />
+                    <div className="h-2 bg-muted rounded" />
                   </div>
                 ))}
               </div>
             ) : !hasData || data.categoryBreakdown.length === 0 ? (
-              <div className="h-40 flex flex-col items-center justify-center text-gray-400 gap-2">
+              <div className="h-40 flex flex-col items-center justify-center text-muted-foreground gap-2">
                 <PieChart className="h-10 w-10" />
                 <p>No expense data for this period</p>
               </div>
@@ -346,12 +349,12 @@ export default function AnalyticsPage() {
                         </div>
                         <div className="text-right">
                           <span className="text-sm font-semibold">₹{fmt(cat.totalAmount)}</span>
-                          <span className="text-xs text-gray-500 ml-1">
+                          <span className="text-xs text-muted-foreground ml-1">
                             ({cat.percentage.toFixed(1)}%)
                           </span>
                         </div>
                       </div>
-                      <div className="w-full bg-gray-100 rounded-full h-2">
+                      <div className="w-full bg-muted rounded-full h-2">
                         <div
                           className="h-2 rounded-full transition-all"
                           style={{
@@ -381,13 +384,13 @@ export default function AnalyticsPage() {
               <div className="space-y-3">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <div key={i} className="animate-pulse flex justify-between">
-                    <div className="h-4 bg-gray-200 rounded w-1/3" />
-                    <div className="h-4 bg-gray-200 rounded w-1/4" />
+                    <div className="h-4 bg-muted rounded w-1/3" />
+                    <div className="h-4 bg-muted rounded w-1/4" />
                   </div>
                 ))}
               </div>
             ) : !hasData || data.topMerchants.length === 0 ? (
-              <div className="h-40 flex flex-col items-center justify-center text-gray-400 gap-2">
+              <div className="h-40 flex flex-col items-center justify-center text-muted-foreground gap-2">
                 <ShoppingBag className="h-10 w-10" />
                 <p>No merchant data for this period</p>
               </div>
@@ -396,10 +399,10 @@ export default function AnalyticsPage() {
                 {data.topMerchants.map((m, idx) => (
                   <div key={m.merchant} className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <span className="text-sm text-gray-400 w-4">{idx + 1}</span>
+                      <span className="text-sm text-muted-foreground w-4">{idx + 1}</span>
                       <div>
                         <p className="text-sm font-medium">{m.merchant}</p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-muted-foreground">
                           {m.count} transaction{m.count !== 1 ? "s" : ""}
                         </p>
                       </div>
@@ -424,9 +427,9 @@ export default function AnalyticsPage() {
               {insights.map((insight, idx) => {
                 const Icon = insight.icon;
                 const colors = {
-                  warning: "border-yellow-200 bg-yellow-50",
-                  success: "border-green-200 bg-green-50",
-                  info: "border-blue-200 bg-blue-50",
+                  warning: "border-yellow-200 bg-yellow-50 dark:border-yellow-900 dark:bg-yellow-950/30",
+                  success: "border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/30",
+                  info: "border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/30",
                 };
                 const iconColors = {
                   warning: "text-yellow-600",
@@ -442,7 +445,7 @@ export default function AnalyticsPage() {
                       <Icon className={`h-4 w-4 ${iconColors[insight.type as keyof typeof iconColors]}`} />
                       <span className="text-sm font-medium">{insight.title}</span>
                     </div>
-                    <p className="text-sm text-gray-600">{insight.text}</p>
+                    <p className="text-sm text-muted-foreground">{insight.text}</p>
                   </div>
                 );
               })}

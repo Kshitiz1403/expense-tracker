@@ -58,19 +58,19 @@ export default function ReviewQueuePage() {
   const getConfidenceBadge = (confidence: number) => {
     if (confidence >= 0.8) {
       return (
-        <Badge className="bg-green-100 text-green-700">
+        <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
           High {(confidence * 100).toFixed(0)}%
         </Badge>
       );
     } else if (confidence >= 0.5) {
       return (
-        <Badge className="bg-yellow-100 text-yellow-700">
+        <Badge className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
           Medium {(confidence * 100).toFixed(0)}%
         </Badge>
       );
     } else {
       return (
-        <Badge className="bg-red-100 text-red-700">
+        <Badge className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
           Low {(confidence * 100).toFixed(0)}%
         </Badge>
       );
@@ -81,7 +81,7 @@ export default function ReviewQueuePage() {
     return (
       <div className="space-y-6">
         <h1 className="text-2xl md:text-3xl font-bold">Review Queue</h1>
-        <div className="text-center py-12 text-gray-500">
+        <div className="text-center py-12 text-muted-foreground">
           Loading review queue...
         </div>
       </div>
@@ -107,13 +107,13 @@ export default function ReviewQueuePage() {
             <AlertCircle className="h-7 w-7 md:h-8 md:w-8 text-amber-600" />
             Review Queue
           </h1>
-          <p className="text-gray-600">
+          <p className="text-muted-foreground">
             Review and approve AI-categorized transactions with low confidence
           </p>
         </div>
         <div className="flex items-center gap-3">
           <div className="sm:text-right">
-            <p className="text-sm text-gray-500">Pending Reviews</p>
+            <p className="text-sm text-muted-foreground">Pending Reviews</p>
             <p className="text-2xl font-bold text-amber-600">
               {transactions.length}
             </p>
@@ -143,7 +143,7 @@ export default function ReviewQueuePage() {
       {/* Review Items */}
       {transactions.length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center text-gray-500">
+          <CardContent className="py-12 text-center text-muted-foreground">
             🎉 No transactions pending review! All transactions have been approved.
           </CardContent>
         </Card>
@@ -161,7 +161,7 @@ export default function ReviewQueuePage() {
                       {transaction.aiConfidence &&
                         getConfidenceBadge(transaction.aiConfidence)}
                     </div>
-                    <p className="text-sm text-gray-500 mt-1">
+                    <p className="text-sm text-muted-foreground mt-1">
                       {formatDate(transaction.transactionDate)} • {transaction.source.toUpperCase()}
                     </p>
                   </div>
@@ -181,7 +181,7 @@ export default function ReviewQueuePage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* AI Suggestion */}
-                <div className="bg-gray-50 rounded-lg p-4">
+                <div className="bg-muted/50 rounded-lg p-4">
                   <div className="flex items-start gap-3">
                     <TrendingUp className="h-5 w-5 text-blue-600 mt-0.5" />
                     <div className="flex-1">
@@ -191,7 +191,7 @@ export default function ReviewQueuePage() {
                           {transaction.aiSuggestedCategory?.name || "Unknown"}
                         </Badge>
                         {transaction.aiConfidence && (
-                          <span className="text-xs text-gray-500">
+                          <span className="text-xs text-muted-foreground">
                             {(transaction.aiConfidence * 100).toFixed(0)}% confidence
                           </span>
                         )}

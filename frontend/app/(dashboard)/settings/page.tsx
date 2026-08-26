@@ -1,3 +1,6 @@
+"use client";
+
+import { useTheme } from "next-themes";
 import {
   Settings as SettingsIcon,
   User,
@@ -15,10 +18,11 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 
 export default function SettingsPage() {
+  const { theme, setTheme } = useTheme();
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
           <SettingsIcon className="h-8 w-8" />
           Settings
         </h1>
@@ -129,7 +133,7 @@ export default function SettingsPage() {
                 </p>
               </div>
               <div className="bg-primary h-6 w-11 rounded-full relative cursor-pointer">
-                <div className="absolute right-1 top-1 h-4 w-4 bg-white rounded-full" />
+                <div className="absolute right-1 top-1 h-4 w-4 bg-background rounded-full" />
               </div>
             </div>
 
@@ -143,7 +147,7 @@ export default function SettingsPage() {
                 </p>
               </div>
               <div className="bg-primary h-6 w-11 rounded-full relative cursor-pointer">
-                <div className="absolute right-1 top-1 h-4 w-4 bg-white rounded-full" />
+                <div className="absolute right-1 top-1 h-4 w-4 bg-background rounded-full" />
               </div>
             </div>
 
@@ -157,7 +161,7 @@ export default function SettingsPage() {
                 </p>
               </div>
               <div className="bg-muted h-6 w-11 rounded-full relative cursor-pointer">
-                <div className="absolute left-1 top-1 h-4 w-4 bg-white rounded-full" />
+                <div className="absolute left-1 top-1 h-4 w-4 bg-background rounded-full" />
               </div>
             </div>
 
@@ -171,7 +175,7 @@ export default function SettingsPage() {
                 </p>
               </div>
               <div className="bg-muted h-6 w-11 rounded-full relative cursor-pointer">
-                <div className="absolute left-1 top-1 h-4 w-4 bg-white rounded-full" />
+                <div className="absolute left-1 top-1 h-4 w-4 bg-background rounded-full" />
               </div>
             </div>
           </div>
@@ -191,16 +195,27 @@ export default function SettingsPage() {
           <div className="space-y-2">
             <label className="text-sm font-medium">Theme</label>
             <div className="flex gap-2">
-              <Button variant="default">Light</Button>
-              <Button variant="outline" disabled>
+              <Button
+                variant={theme === "light" ? "default" : "outline"}
+                onClick={() => setTheme("light")}
+              >
+                Light
+              </Button>
+              <Button
+                variant={theme === "dark" ? "default" : "outline"}
+                onClick={() => setTheme("dark")}
+              >
                 Dark
               </Button>
-              <Button variant="outline" disabled>
+              <Button
+                variant={theme === "system" ? "default" : "outline"}
+                onClick={() => setTheme("system")}
+              >
                 Auto
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Currently using light theme as configured
+              Auto follows your device&apos;s system preference
             </p>
           </div>
         </CardContent>
