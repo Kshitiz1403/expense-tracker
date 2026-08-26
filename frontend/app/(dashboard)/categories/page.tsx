@@ -36,7 +36,7 @@ export default function CategoriesPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <h1 className="text-3xl font-bold">Categories</h1>
+        <h1 className="text-2xl md:text-3xl font-bold">Categories</h1>
         <div className="text-center py-12 text-gray-500">
           Loading categories...
         </div>
@@ -47,7 +47,7 @@ export default function CategoriesPage() {
   if (error) {
     return (
       <div className="space-y-6">
-        <h1 className="text-3xl font-bold">Categories</h1>
+        <h1 className="text-2xl md:text-3xl font-bold">Categories</h1>
         <div className="text-center py-12 text-red-500">
           {error}
         </div>
@@ -58,15 +58,15 @@ export default function CategoriesPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Categories</h1>
+          <h1 className="text-2xl md:text-3xl font-bold">Categories</h1>
           <p className="text-gray-600 mt-1">
             Manage your income and expense categories
           </p>
         </div>
         <EditCategoryDialog onSuccess={fetchCategories}>
-          <Button>
+          <Button className="w-full sm:w-auto">
             <Plus className="h-4 w-4 mr-2" />
             Add Category
           </Button>

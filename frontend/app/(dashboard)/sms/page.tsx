@@ -162,8 +162,8 @@ function SMSPageContent() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <MessageSquare className="h-8 w-8" />
+        <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2">
+          <MessageSquare className="h-7 w-7 md:h-8 md:w-8" />
           SMS Messages
         </h1>
         <p className="text-gray-600 mt-1">Browse all received SMS messages.</p>
@@ -201,14 +201,14 @@ function SMSPageContent() {
               type="date"
               value={dateFrom}
               onChange={(e) => handleDateFromChange(e.target.value)}
-              className="w-[160px]"
+              className="w-full md:w-[160px]"
               title="From date"
             />
             <Input
               type="date"
               value={dateTo}
               onChange={(e) => handleDateToChange(e.target.value)}
-              className="w-[160px]"
+              className="w-full md:w-[160px]"
               title="To date"
             />
           </div>
@@ -225,64 +225,89 @@ function SMSPageContent() {
           ) : messages.length === 0 ? (
             <div className="p-8 text-center text-gray-500">{emptyMessage}</div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Phone
-                    </th>
-                    <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Message
-                    </th>
-                    <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Received
-                    </th>
-                    <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Reason
-                    </th>
-                    {classification !== "transaction" && (
-                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Action
-                      </th>
+            <>
+              {/* Mobile card list */}
+              <div className="md:hidden divide-y">
+                {messages.map((msg) => (
+                  <div key={msg.id} className="p-4 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-xs font-mono text-gray-500">{msg.phoneNumber}</span>
+                      <span className="text-xs text-gray-400 shrink-0">{formatDate(msg.receivedAt)}</span>
+                    </div>
+                    <p className="text-sm text-gray-700">{truncate(msg.message, 120)}</p>
+                    {msg.processingError && (
+                      <Badge variant="outline" className="text-xs text-gray-500 max-w-full truncate block" title={msg.processingError}>
+                        {msg.processingError}
+                      </Badge>
                     )}
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {messages.map((msg) => (
-                    <tr key={msg.id} className="hover:bg-gray-50">
-                      <td className="py-3 px-4 text-sm font-mono whitespace-nowrap">
-                        {msg.phoneNumber}
-                      </td>
-                      <td className="py-3 px-4 text-sm text-gray-700 max-w-sm">
-                        {truncate(msg.message)}
-                      </td>
-                      <td className="py-3 px-4 text-sm text-gray-500 whitespace-nowrap">
-                        {formatDate(msg.receivedAt)}
-                      </td>
-                      <td className="py-3 px-4">
-                        {msg.processingError && (
-                          <Badge
-                            variant="outline"
-                            className="text-xs text-gray-500 max-w-[200px] truncate block"
-                            title={msg.processingError}
-                          >
-                            {msg.processingError}
-                          </Badge>
-                        )}
-                      </td>
+                    {classification !== "transaction" && (
+                      <Button size="sm" className="w-full" onClick={() => setSelectedSMS(msg)}>
+                        Convert
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {/* Desktop table */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Phone
+                      </th>
+                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Message
+                      </th>
+                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Received
+                      </th>
+                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Reason
+                      </th>
                       {classification !== "transaction" && (
-                        <td className="py-3 px-4">
-                          <Button size="sm" onClick={() => setSelectedSMS(msg)}>
-                            Convert
-                          </Button>
-                        </td>
+                        <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Action
+                        </th>
                       )}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y">
+                    {messages.map((msg) => (
+                      <tr key={msg.id} className="hover:bg-gray-50">
+                        <td className="py-3 px-4 text-sm font-mono whitespace-nowrap">
+                          {msg.phoneNumber}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-gray-700 max-w-sm">
+                          {truncate(msg.message)}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-gray-500 whitespace-nowrap">
+                          {formatDate(msg.receivedAt)}
+                        </td>
+                        <td className="py-3 px-4">
+                          {msg.processingError && (
+                            <Badge
+                              variant="outline"
+                              className="text-xs text-gray-500 max-w-[200px] truncate block"
+                              title={msg.processingError}
+                            >
+                              {msg.processingError}
+                            </Badge>
+                          )}
+                        </td>
+                        {classification !== "transaction" && (
+                          <td className="py-3 px-4">
+                            <Button size="sm" onClick={() => setSelectedSMS(msg)}>
+                              Convert
+                            </Button>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
 
           {/* Pagination */}
