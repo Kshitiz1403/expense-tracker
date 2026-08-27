@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"expense-tracker/internal/models"
 	"expense-tracker/internal/repository"
 	"expense-tracker/internal/services"
@@ -9,7 +8,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -35,26 +33,18 @@ func NewWebhookHandler(
 	}
 }
 
-// SMSWebhook payload structures
-type SMSWebhookPayload struct {
-	DeviceID  string     `json:"deviceId"`
-	Event     string     `json:"event"`
-	ID        string     `json:"id"`
-	Payload   SMSPayload `json:"payload"`
-	WebhookID string     `json:"webhookId"`
-}
-
-type SMSPayload struct {
-	Message     string `json:"message"`
-	ReceivedAt  string `json:"receivedAt"`
-	MessageID   string `json:"messageId"`
-	PhoneNumber string `json:"phoneNumber"`
-	SimNumber   int    `json:"simNumber"`
-}
-
-// HandleSMSWebhook processes incoming SMS webhooks from Android SMS Gateway
+// HandleSMSWebhook processes incoming SMS webhooks from Android SMS Gateway (v1).
 func (h *WebhookHandler) HandleSMSWebhook(c *gin.Context) {
-	// Read body
+	h.handleSMS(c, &androidGatewayProvider{})
+}
+
+// HandleSMSWebhookV2 processes incoming SMS webhooks from the v2 provider.
+func (h *WebhookHandler) HandleSMSWebhookV2(c *gin.Context) {
+	h.handleSMS(c, &v2Provider{})
+}
+
+// handleSMS is the shared handler logic used by all provider-specific endpoints.
+func (h *WebhookHandler) handleSMS(c *gin.Context, provider SMSWebhookProvider) {
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		log.Printf("Error reading request body: %v", err)
@@ -62,23 +52,22 @@ func (h *WebhookHandler) HandleSMSWebhook(c *gin.Context) {
 		return
 	}
 
-	// Parse payload
-	var webhook SMSWebhookPayload
-	if err := json.Unmarshal(body, &webhook); err != nil {
+	sms, err := provider.Parse(body)
+	if err != nil {
 		log.Printf("Error parsing webhook payload: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid JSON payload"})
 		return
 	}
 
-	// Check for duplicate (idempotency)
-	existing, err := h.smsRepo.GetByEventID(webhook.ID)
+	// Idempotency check
+	existing, err := h.smsRepo.GetByEventID(sms.EventID)
 	if err != nil {
 		log.Printf("Error checking for duplicate: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
 	if existing != nil {
-		log.Printf("Duplicate webhook received: %s", webhook.ID)
+		log.Printf("Duplicate webhook received: %s", sms.EventID)
 		c.JSON(http.StatusOK, gin.H{
 			"status":  "ok",
 			"message": "Webhook already processed",
@@ -87,56 +76,39 @@ func (h *WebhookHandler) HandleSMSWebhook(c *gin.Context) {
 		return
 	}
 
-	// Parse received timestamp
-	receivedAt, err := time.Parse(time.RFC3339, webhook.Payload.ReceivedAt)
-	if err != nil {
-		log.Printf("Error parsing receivedAt timestamp: %v", err)
-		receivedAt = time.Now()
-	}
-
-	// Create SMS message record
-	smsMessage := &models.SMSMessage{
-		DeviceID:    webhook.DeviceID,
-		EventType:   webhook.Event,
-		EventID:     webhook.ID,
-		WebhookID:   webhook.WebhookID,
-		Message:     webhook.Payload.Message,
-		PhoneNumber: webhook.Payload.PhoneNumber,
-		SimNumber:   webhook.Payload.SimNumber,
-		MessageID:   webhook.Payload.MessageID,
-		ReceivedAt:  receivedAt,
+	msg := &models.SMSMessage{
+		DeviceID:    sms.DeviceID,
+		EventType:   sms.EventType,
+		EventID:     sms.EventID,
+		WebhookID:   sms.WebhookID,
+		Message:     sms.Message,
+		PhoneNumber: sms.PhoneNumber,
+		SimNumber:   sms.SimNumber,
+		MessageID:   sms.MessageID,
+		ReceivedAt:  sms.ReceivedAt,
 		RawPayload:  string(body),
 		IPAddress:   c.ClientIP(),
 		Processed:   false,
 	}
 
-	// Store in database
-	if err := h.smsRepo.Create(smsMessage); err != nil {
+	if err := h.smsRepo.Create(msg); err != nil {
 		log.Printf("Error storing SMS message: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store message"})
 		return
 	}
 
 	log.Printf("SMS webhook received and stored: ID=%s, EventID=%s, From=%s, Message=%s",
-		smsMessage.ID, smsMessage.EventID, smsMessage.PhoneNumber, smsMessage.Message[:min(50, len(smsMessage.Message))])
+		msg.ID, msg.EventID, msg.PhoneNumber, msg.Message[:min(50, len(msg.Message))])
 
-	// Enqueue SMS processing task
-	if err := h.taskClient.EnqueueProcessSMS(c.Request.Context(), smsMessage.ID); err != nil {
+	if err := h.taskClient.EnqueueProcessSMS(c.Request.Context(), msg.ID); err != nil {
 		log.Printf("Error enqueueing SMS processing task: %v", err)
-		// Don't fail the webhook - task will be retried
+		// Don't fail the webhook — task enqueue failure is non-fatal
 	}
 
-	// Return success immediately
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "ok",
 		"message": "Webhook received successfully",
-		"id":      smsMessage.ID,
+		"id":      msg.ID,
 	})
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
