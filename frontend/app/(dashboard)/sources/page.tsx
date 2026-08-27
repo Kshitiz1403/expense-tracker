@@ -256,16 +256,15 @@ export default function DataSourcesPage() {
                       Configuration
                     </p>
                     {Object.entries(cfg).map(([key, value]) => (
-                      <div key={key} className="flex justify-between gap-3 text-sm min-w-0">
+                      <div key={key} className="flex items-start gap-3 text-sm min-w-0">
                         <span className="text-muted-foreground capitalize shrink-0">
                           {key.replace(/_/g, " ")}:
                         </span>
-                        <span
-                          className="font-medium font-mono text-xs text-right truncate"
-                          title={String(value)}
-                        >
-                          {String(value)}
-                        </span>
+                        <div className="overflow-x-auto flex-1 min-w-0">
+                          <span className="font-medium font-mono text-xs whitespace-nowrap">
+                            {String(value)}
+                          </span>
+                        </div>
                       </div>
                     ))}
                   </div>
