@@ -160,6 +160,7 @@ func main() {
 
 		// Public: SMS webhook (has its own secret-based verification)
 		api.POST("/webhooks/sms", webhookHandler.HandleSMSWebhook)
+		api.POST("/webhooks/sms/v2", webhookHandler.HandleSMSWebhookV2)
 
 		// Protected routes
 		protected := api.Group("")
