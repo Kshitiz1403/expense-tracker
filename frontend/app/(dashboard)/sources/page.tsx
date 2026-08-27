@@ -224,12 +224,12 @@ export default function DataSourcesPage() {
           return (
             <Card key={cat.type} className="hover:shadow-md transition-shadow">
               <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-3">
-                    <div className="bg-primary/10 p-3 rounded-lg">
+                <div className="flex items-start justify-between gap-2 flex-wrap">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div className="bg-primary/10 p-3 rounded-lg shrink-0">
                       <Icon className="h-6 w-6 text-primary" />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <CardTitle className="text-lg">{cat.name}</CardTitle>
                       <p className="text-sm text-muted-foreground mt-1">
                         {cat.description}
