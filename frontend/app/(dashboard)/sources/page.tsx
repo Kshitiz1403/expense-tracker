@@ -186,7 +186,7 @@ export default function DataSourcesPage() {
             ) : (
               <>
                 <p className="text-lg font-semibold text-muted-foreground">Not configured</p>
-                <p className="text-sm text-muted-foreground mt-1">Click "Add Source" to set up</p>
+                <p className="text-sm text-muted-foreground mt-1">Click &quot;Add Source&quot; to set up</p>
               </>
             )}
           </CardContent>
