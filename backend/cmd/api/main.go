@@ -56,6 +56,7 @@ func main() {
 	}
 
 	// Initialize repositories
+	dsRepo  := repository.NewDataSourceRepository(db)
 	smsRepo := repository.NewSMSRepository(db)
 	txRepo := repository.NewTransactionRepository(db)
 	catRepo := repository.NewCategoryRepository(db)
@@ -118,7 +119,8 @@ func main() {
 	}()
 
 	// Initialize handlers
-	authHandler := handlers.NewAuthHandler(&cfg.Auth)
+	authHandler       := handlers.NewAuthHandler(&cfg.Auth)
+	dataSourceHandler := handlers.NewDataSourceHandler(dsRepo, cfg.Server.APIBaseURL)
 	webhookHandler := handlers.NewWebhookHandler(smsRepo, processor, taskClient, cfg.SMS.WebhookID)
 	categoryHandler := handlers.NewCategoryHandler(catRepo)
 	transactionHandler := handlers.NewTransactionHandler(txRepo, catRepo, tripRepo)
@@ -210,6 +212,14 @@ func main() {
 			analytics := protected.Group("/analytics")
 			{
 				analytics.GET("/summary", analyticsHandler.GetSummary)
+			}
+
+			// Data Sources
+			dataSources := protected.Group("/datasources")
+			{
+				dataSources.GET("", dataSourceHandler.List)
+				dataSources.POST("", dataSourceHandler.Create)
+				dataSources.GET("/:id/sms-config", dataSourceHandler.DownloadSMSConfig)
 			}
 
 			// SMS Messages (browse unconverted + manual conversion)

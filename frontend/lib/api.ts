@@ -241,6 +241,21 @@ class APIClient {
       this.request<TripSummary>(`/api/trips/${id}/summary`),
   };
 
+  // Data Sources API
+  datasources = {
+    list: () =>
+      this.request<DataSource[]>('/api/datasources'),
+
+    create: (deviceId: string) =>
+      this.request<DataSource>('/api/datasources', {
+        method: 'POST',
+        body: JSON.stringify({ deviceId }),
+      }),
+
+    downloadConfig: (id: string): Promise<object[]> =>
+      this.request<object[]>(`/api/datasources/${id}/sms-config`),
+  };
+
   // Health API
   health = {
     check: () =>
@@ -499,4 +514,15 @@ export interface TripSummary {
 export interface TripListParams {
   page?: number;
   limit?: number;
+}
+
+export interface DataSource {
+  id: string;
+  type: 'sms' | 'email' | 'bank_statement' | 'manual';
+  name: string;
+  status: 'connected' | 'disconnected' | 'syncing' | 'error';
+  config?: string; // raw JSON string
+  lastSync?: string;
+  createdAt: string;
+  updatedAt: string;
 }
