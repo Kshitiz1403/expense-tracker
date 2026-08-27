@@ -53,6 +53,9 @@ services:
       # Frontend
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3001}
 
+      # API public base URL (embedded in generated SMS gateway config files)
+      API_BASE_URL: ${API_BASE_URL:-http://localhost:8080}
+
       # Authentication
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}

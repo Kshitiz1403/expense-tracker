@@ -26,8 +26,9 @@ type AuthConfig struct {
 }
 
 type ServerConfig struct {
-	Port    string
-	GinMode string
+	Port       string
+	GinMode    string
+	APIBaseURL string // public-facing base URL, e.g. https://expenses-api.example.com
 }
 
 type DatabaseConfig struct {
@@ -61,8 +62,9 @@ func Load() *Config {
 
 	return &Config{
 		Server: ServerConfig{
-			Port:    getEnv("PORT", "8080"),
-			GinMode: getEnv("GIN_MODE", "debug"),
+			Port:       getEnv("PORT", "8080"),
+			GinMode:    getEnv("GIN_MODE", "debug"),
+			APIBaseURL: getEnv("API_BASE_URL", "http://localhost:8080"),
 		},
 		Database: DatabaseConfig{
 			Host:     getEnv("DB_HOST", "localhost"),

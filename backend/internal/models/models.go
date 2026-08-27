@@ -13,7 +13,7 @@ type DataSource struct {
 	Name      string          `gorm:"type:varchar(255);not null" json:"name"`
 	Status    string          `gorm:"type:varchar(50);not null" json:"status"` // connected, disconnected, syncing
 	LastSync  *time.Time      `json:"lastSync"`
-	Config    *gorm.DeletedAt `gorm:"type:jsonb" json:"config"` // Store source-specific config as JSON
+	Config    *string         `gorm:"type:jsonb" json:"config"` // Store source-specific config as JSON
 	CreatedAt time.Time       `json:"createdAt"`
 	UpdatedAt time.Time       `json:"updatedAt"`
 }
