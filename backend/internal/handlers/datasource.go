@@ -24,10 +24,6 @@ func NewDataSourceHandler(dsRepo *repository.DataSourceRepository, apiBaseURL st
 	return &DataSourceHandler{dsRepo: dsRepo, apiBaseURL: apiBaseURL}
 }
 
-// smsGatewayConfig holds the fields we store for an SMS gateway data source.
-type smsGatewayConfig struct {
-	DeviceID string `json:"deviceId"`
-}
 
 // gatewayImportEntry is a single entry in the importable config JSON array.
 type gatewayImportEntry struct {
@@ -75,8 +71,8 @@ func (h *DataSourceHandler) Create(c *gin.Context) {
 		return
 	}
 
-	cfg := smsGatewayConfig{DeviceID: body.DeviceID}
-	cfgJSON, err := json.Marshal(cfg)
+	entry := buildGatewayEntry(body.DeviceID, h.apiBaseURL)
+	cfgJSON, err := json.Marshal(entry)
 	if err != nil {
 		log.Printf("Error marshaling config: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal error"})
@@ -117,16 +113,17 @@ func (h *DataSourceHandler) DownloadSMSConfig(c *gin.Context) {
 		return
 	}
 
-	var cfg smsGatewayConfig
-	if ds.Config != nil {
-		if err := json.Unmarshal([]byte(*ds.Config), &cfg); err != nil {
-			log.Printf("Error parsing data source config: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Corrupt config"})
-			return
-		}
+	if ds.Config == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "No config stored for this data source"})
+		return
+	}
+	var entry gatewayImportEntry
+	if err := json.Unmarshal([]byte(*ds.Config), &entry); err != nil {
+		log.Printf("Error parsing data source config: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Corrupt config"})
+		return
 	}
 
-	entry := buildGatewayEntry(cfg.DeviceID, h.apiBaseURL)
 	out, _ := json.MarshalIndent([]gatewayImportEntry{entry}, "", "  ")
 
 	c.Header("Content-Disposition", "attachment; filename=\"sms-gateway-config.json\"")
@@ -137,7 +134,7 @@ func buildGatewayEntry(deviceID, apiBaseURL string) gatewayImportEntry {
 	key := fmt.Sprintf("%d_%06d", time.Now().UnixMilli(), rand.Intn(1_000_000))
 	webhookURL := strings.TrimRight(apiBaseURL, "/") + "/api/webhooks/sms/v2"
 	template := fmt.Sprintf(
-		`{"from":"%%from%%","text":"%%text%%","sentStamp":%%sentStamp%%,"receivedStamp":%%receivedStamp%%,"sim":"%%sim%%","deviceId":%q}`,
+		`{"from":"%%from%%","text":"%%text%%","sentStamp":%%sentStamp%%,"receivedStamp":%%receivedStamp%%,"sim":"%%sim%%","deviceId":%q,"event":"sms:received"}`,
 		deviceID,
 	)
 
@@ -156,7 +153,7 @@ func buildGatewayEntry(deviceID, apiBaseURL string) gatewayImportEntry {
 		IsSMSEnabled:        true,
 		SignHMACSHA256:      false,
 		SignHMACSHA256Secret: "",
-		StoreFailed:         false,
+		StoreFailed:         true,
 		LocalMode:           false,
 	}
 }
