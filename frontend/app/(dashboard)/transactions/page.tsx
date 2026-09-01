@@ -40,7 +40,9 @@ function TransactionsPageContent() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
+  const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(
+    searchParams.get("txn") ?? null
+  );
   const [search, setSearch] = useState(initialSearch);
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>(initialFilters);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -89,13 +91,27 @@ function TransactionsPageContent() {
       if (nextFilters.dateFrom)  params.set("dateFrom", nextFilters.dateFrom);
       if (nextFilters.dateTo)    params.set("dateTo",   nextFilters.dateTo);
       if (nextPage > 1)          params.set("page",     String(nextPage));
+      const currentTxn = searchParams.get("txn");
+      if (currentTxn)            params.set("txn",      currentTxn);
       const query = params.toString();
       const url = query ? `?${query}` : "/transactions";
       isInternalNav.current = true;
       if (method === "push") router.push(url);
       else router.replace(url);
     },
-    [router]
+    [router, searchParams]
+  );
+
+  const handleTransactionSelect = useCallback(
+    (id: string | null) => {
+      setSelectedTransactionId(id);
+      const params = new URLSearchParams(searchParams.toString());
+      if (id) params.set("txn", id);
+      else params.delete("txn");
+      isInternalNav.current = true;
+      router.replace(`?${params.toString()}`);
+    },
+    [router, searchParams]
   );
 
   useEffect(() => {
@@ -113,6 +129,7 @@ function TransactionsPageContent() {
       dateFrom: searchParams.get("dateFrom") ?? undefined,
       dateTo:   searchParams.get("dateTo")   ?? undefined,
     });
+    setSelectedTransactionId(searchParams.get("txn") ?? null);
   }, [searchParams]);
 
   const handleFilterChange = (filters: ActiveFilters) => {
@@ -220,7 +237,7 @@ function TransactionsPageContent() {
                   <div
                     key={tx.id}
                     className="p-4 space-y-2 cursor-pointer hover:bg-muted/50 transition-colors"
-                    onClick={() => setSelectedTransactionId(tx.id)}
+                    onClick={() => handleTransactionSelect(tx.id)}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
@@ -300,7 +317,7 @@ function TransactionsPageContent() {
                       <tr
                         key={tx.id}
                         className="hover:bg-muted/50 transition-colors cursor-pointer"
-                        onClick={() => setSelectedTransactionId(tx.id)}
+                        onClick={() => handleTransactionSelect(tx.id)}
                       >
                         <td className="py-3 px-4 max-w-xs">
                           <div>
@@ -440,7 +457,7 @@ function TransactionsPageContent() {
       </Card>
       <TransactionDetailSheet
         transactionId={selectedTransactionId}
-        onClose={() => setSelectedTransactionId(null)}
+        onClose={() => handleTransactionSelect(null)}
       />
     </div>
   );
