@@ -25,7 +25,7 @@ func NewWorkerServer(pool *pgxpool.Pool, processor *services.TransactionProcesso
 	}
 
 	riverClient, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
-		Queues:  map[string]river.QueueConfig{"sms": {MaxWorkers: 10}},
+		Queues:  map[string]river.QueueConfig{"sms": {MaxWorkers: 1}},
 		Workers: workers,
 	})
 	if err != nil {
