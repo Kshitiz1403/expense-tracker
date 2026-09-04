@@ -43,10 +43,9 @@ func NewTransactionProcessor(
 	}
 }
 
-// ProcessSMS processes an SMS message and creates a transaction if applicable
-func (p *TransactionProcessor) ProcessSMS(ctx context.Context, smsID uuid.UUID) error {
-	// Fetch SMS message
-	sms, err := p.smsRepo.GetByID(smsID)
+// ProcessSMS processes an SMS message and creates a transaction if applicable.
+func (p *TransactionProcessor) ProcessSMS(ctx context.Context, smsID uuid.UUID, userID uuid.UUID) error {
+	sms, err := p.smsRepo.GetByID(smsID, userID)
 	if err != nil {
 		return fmt.Errorf("failed to fetch SMS: %w", err)
 	}
@@ -54,7 +53,6 @@ func (p *TransactionProcessor) ProcessSMS(ctx context.Context, smsID uuid.UUID) 
 		return fmt.Errorf("SMS not found: %s", smsID)
 	}
 
-	// Check if already processed
 	existingTx, err := p.txRepo.GetBySourceID(smsID)
 	if err != nil {
 		return fmt.Errorf("failed to check existing transaction: %w", err)
@@ -64,11 +62,8 @@ func (p *TransactionProcessor) ProcessSMS(ctx context.Context, smsID uuid.UUID) 
 		return nil
 	}
 
-	// Classify message
 	classification := p.smsParser.ClassifyMessage(sms.Message, sms.PhoneNumber)
-
 	if !classification.IsValid {
-		// Mark as processed but don't create transaction
 		log.Printf("SMS %s classified as %s: %s", smsID, classification.Type, classification.Reason)
 		p.smsRepo.MarkAsProcessed(smsID, &classification.Reason)
 		return nil
@@ -76,10 +71,8 @@ func (p *TransactionProcessor) ProcessSMS(ctx context.Context, smsID uuid.UUID) 
 
 	log.Printf("SMS %s classified as transaction, sending to AI for extraction", smsID)
 
-	// Extract transaction using AI
 	txData, meta, err := p.aiService.ExtractTransaction(ctx, sms.Message)
 
-	// Build AI call record (saved regardless of success/failure)
 	aiCall := &models.AICall{
 		SMSID:       &smsID,
 		Provider:    p.aiService.Provider,
@@ -92,7 +85,6 @@ func (p *TransactionProcessor) ProcessSMS(ctx context.Context, smsID uuid.UUID) 
 
 	if err != nil {
 		if errors.Is(err, ErrNotATransaction) {
-			// AI determined this is not a financial transaction — mark processed and move on.
 			reason := "AI: not a transaction (confidence=0)"
 			aiCall.Error = &reason
 			p.aiCallRepo.Create(aiCall)
@@ -112,20 +104,20 @@ func (p *TransactionProcessor) ProcessSMS(ctx context.Context, smsID uuid.UUID) 
 	log.Printf("AI extracted transaction: Amount=%.2f, Type=%s, Merchant=%s, Confidence=%.2f",
 		txData.Amount, txData.Type, txData.Merchant, txData.Confidence)
 
-	// Store parsed result in AI call
 	parsedJSON, _ := json.Marshal(txData)
 	parsedStr := string(parsedJSON)
 	aiCall.ParsedResult = &parsedStr
 
-	// Find category by AI-suggested name, create it if not found
-	category, err := p.catRepo.GetByName(txData.Category)
+	// Find or create category scoped to this user
+	category, err := p.catRepo.GetByName(txData.Category, userID)
 	if err != nil {
 		return fmt.Errorf("failed to fetch category: %w", err)
 	}
 	if category == nil && txData.Category != "" {
 		category = &models.Category{
-			Name: txData.Category,
-			Type: txData.Type,
+			UserID: &userID,
+			Name:   txData.Category,
+			Type:   txData.Type,
 		}
 		if err := p.catRepo.Create(category); err != nil {
 			log.Printf("Warning: failed to create category %q: %v", txData.Category, err)
@@ -138,11 +130,10 @@ func (p *TransactionProcessor) ProcessSMS(ctx context.Context, smsID uuid.UUID) 
 		categoryID = &category.ID
 	}
 
-	// Determine if requires review based on confidence threshold
 	requiresReview := txData.Confidence < p.confidenceThreshold
 
-	// Create transaction
 	transaction := &models.Transaction{
+		UserID:                userID,
 		Description:           txData.Description,
 		Amount:                txData.Amount,
 		Type:                  txData.Type,
@@ -156,7 +147,6 @@ func (p *TransactionProcessor) ProcessSMS(ctx context.Context, smsID uuid.UUID) 
 		RequiresReview:        requiresReview,
 	}
 
-	// Store AI metadata
 	metadata, _ := json.Marshal(map[string]interface{}{
 		"ai_category":    txData.Category,
 		"ai_description": txData.Description,
@@ -165,7 +155,6 @@ func (p *TransactionProcessor) ProcessSMS(ctx context.Context, smsID uuid.UUID) 
 	metadataStr := string(metadata)
 	transaction.AIMetadata = &metadataStr
 
-	// Save transaction
 	if err := p.txRepo.Create(transaction); err != nil {
 		return fmt.Errorf("failed to create transaction: %w", err)
 	}
@@ -173,11 +162,8 @@ func (p *TransactionProcessor) ProcessSMS(ctx context.Context, smsID uuid.UUID) 
 	log.Printf("Created transaction %s from SMS %s (confidence: %.2f, review: %v)",
 		transaction.ID, smsID, txData.Confidence, requiresReview)
 
-	// Save AI call record linked to the created transaction
 	aiCall.TransactionID = &transaction.ID
 	p.aiCallRepo.Create(aiCall)
-
-	// Mark SMS as processed
 	p.smsRepo.MarkAsProcessed(smsID, nil)
 
 	return nil

@@ -10,10 +10,12 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type WebhookHandler struct {
 	smsRepo    *repository.SMSRepository
+	dsRepo     *repository.DataSourceRepository
 	processor  *services.TransactionProcessor
 	taskClient *workers.TaskClient
 	webhookID  string
@@ -21,12 +23,14 @@ type WebhookHandler struct {
 
 func NewWebhookHandler(
 	smsRepo *repository.SMSRepository,
+	dsRepo *repository.DataSourceRepository,
 	processor *services.TransactionProcessor,
 	taskClient *workers.TaskClient,
 	webhookID string,
 ) *WebhookHandler {
 	return &WebhookHandler{
 		smsRepo:    smsRepo,
+		dsRepo:     dsRepo,
 		processor:  processor,
 		taskClient: taskClient,
 		webhookID:  webhookID,
@@ -59,8 +63,30 @@ func (h *WebhookHandler) handleSMS(c *gin.Context, provider SMSWebhookProvider) 
 		return
 	}
 
-	// Idempotency check
-	existing, err := h.smsRepo.GetByEventID(sms.EventID)
+	// Identify the user from the X-User-ID header embedded in the generated config
+	userIDStr := c.GetHeader("X-User-ID")
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		log.Printf("Missing or invalid X-User-ID header: %q", userIDStr)
+		c.JSON(http.StatusForbidden, gin.H{"error": "Missing or invalid X-User-ID header"})
+		return
+	}
+
+	// Verify the device is registered to this user
+	ds, err := h.dsRepo.GetByDeviceIDAndUser(sms.DeviceID, userID)
+	if err != nil {
+		log.Printf("Error checking device registration: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
+	if ds == nil {
+		log.Printf("Unregistered device %q for user %s", sms.DeviceID, userID)
+		c.JSON(http.StatusForbidden, gin.H{"error": "Device not registered for this user"})
+		return
+	}
+
+	// Idempotency check scoped to user
+	existing, err := h.smsRepo.GetByEventID(sms.EventID, userID)
 	if err != nil {
 		log.Printf("Error checking for duplicate: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
@@ -77,6 +103,7 @@ func (h *WebhookHandler) handleSMS(c *gin.Context, provider SMSWebhookProvider) 
 	}
 
 	msg := &models.SMSMessage{
+		UserID:      userID,
 		DeviceID:    sms.DeviceID,
 		EventType:   sms.EventType,
 		EventID:     sms.EventID,
@@ -100,9 +127,8 @@ func (h *WebhookHandler) handleSMS(c *gin.Context, provider SMSWebhookProvider) 
 	log.Printf("SMS webhook received and stored: ID=%s, EventID=%s, From=%s, Message=%s",
 		msg.ID, msg.EventID, msg.PhoneNumber, msg.Message[:min(50, len(msg.Message))])
 
-	if err := h.taskClient.EnqueueProcessSMS(c.Request.Context(), msg.ID); err != nil {
+	if err := h.taskClient.EnqueueProcessSMS(c.Request.Context(), msg.ID, userID); err != nil {
 		log.Printf("Error enqueueing SMS processing task: %v", err)
-		// Don't fail the webhook — task enqueue failure is non-fatal
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -111,4 +137,3 @@ func (h *WebhookHandler) handleSMS(c *gin.Context, provider SMSWebhookProvider) 
 		"id":      msg.ID,
 	})
 }
-

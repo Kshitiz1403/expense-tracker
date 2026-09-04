@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"expense-tracker/internal/middleware"
 	"expense-tracker/internal/models"
 	"expense-tracker/internal/repository"
 
@@ -20,10 +21,13 @@ func NewAnalyticsHandler(repo *repository.AnalyticsRepository) *AnalyticsHandler
 }
 
 // GetSummary handles GET /api/analytics/summary
-// Query params:
-//   - months: 3 | 6 | 12 (default 6) — shortcut for a relative date range
-//   - date_from, date_to: explicit date range (overrides months)
 func (h *AnalyticsHandler) GetSummary(c *gin.Context) {
+	userID, ok := middleware.GetUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
 	now := time.Now()
 	var dateFrom, dateTo time.Time
 
@@ -41,10 +45,9 @@ func (h *AnalyticsHandler) GetSummary(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid date_to, use YYYY-MM-DD"})
 			return
 		}
-		dateTo = parsed.Add(24*time.Hour - time.Second) // end of day
+		dateTo = parsed.Add(24*time.Hour - time.Second)
 	}
 
-	// If no explicit range, use months param (default 6)
 	if dateFrom.IsZero() || dateTo.IsZero() {
 		months := 6
 		if m := c.Query("months"); m != "" {
@@ -56,32 +59,27 @@ func (h *AnalyticsHandler) GetSummary(c *gin.Context) {
 		dateFrom = now.AddDate(0, -months, 0)
 	}
 
-	// Run all four queries
-	totals, err := h.analyticsRepo.GetOverallTotals(dateFrom, dateTo)
+	totals, err := h.analyticsRepo.GetOverallTotals(userID, dateFrom, dateTo)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch totals"})
 		return
 	}
-
-	monthlyRows, err := h.analyticsRepo.GetMonthlySummary(dateFrom, dateTo)
+	monthlyRows, err := h.analyticsRepo.GetMonthlySummary(userID, dateFrom, dateTo)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch monthly summary"})
 		return
 	}
-
-	categoryRows, err := h.analyticsRepo.GetCategoryBreakdown(dateFrom, dateTo)
+	categoryRows, err := h.analyticsRepo.GetCategoryBreakdown(userID, dateFrom, dateTo)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch category breakdown"})
 		return
 	}
-
-	merchantRows, err := h.analyticsRepo.GetTopMerchants(dateFrom, dateTo, 10)
+	merchantRows, err := h.analyticsRepo.GetTopMerchants(userID, dateFrom, dateTo, 10)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch top merchants"})
 		return
 	}
 
-	// Build monthly breakdown
 	monthly := make([]models.MonthlyBreakdown, 0, len(monthlyRows))
 	for _, r := range monthlyRows {
 		label := r.Month
@@ -97,7 +95,6 @@ func (h *AnalyticsHandler) GetSummary(c *gin.Context) {
 		})
 	}
 
-	// Build category breakdown with percentages
 	categories := make([]models.CategoryBreakdown, 0, len(categoryRows))
 	for _, r := range categoryRows {
 		pct := 0.0
@@ -115,7 +112,6 @@ func (h *AnalyticsHandler) GetSummary(c *gin.Context) {
 		})
 	}
 
-	// Build merchants list
 	merchants := make([]models.MerchantBreakdown, 0, len(merchantRows))
 	for _, r := range merchantRows {
 		merchants = append(merchants, models.MerchantBreakdown{
@@ -125,21 +121,18 @@ func (h *AnalyticsHandler) GetSummary(c *gin.Context) {
 		})
 	}
 
-	// Compute derived totals
 	netSavings := totals.TotalIncome - totals.TotalExpense
 	savingsRate := 0.0
 	if totals.TotalIncome > 0 {
 		savingsRate = (netSavings / totals.TotalIncome) * 100
 	}
-
-	topCatName := ""
-	topCatPct := 0.0
+	topCatName, topCatPct := "", 0.0
 	if len(categories) > 0 {
 		topCatName = categories[0].CategoryName
 		topCatPct = categories[0].Percentage
 	}
 
-	summary := models.AnalyticsSummary{
+	c.JSON(http.StatusOK, models.AnalyticsSummary{
 		DateFrom:              dateFrom.Format("2006-01-02"),
 		DateTo:                dateTo.Format("2006-01-02"),
 		TotalIncome:           totals.TotalIncome,
@@ -151,7 +144,5 @@ func (h *AnalyticsHandler) GetSummary(c *gin.Context) {
 		MonthlyBreakdown:      monthly,
 		CategoryBreakdown:     categories,
 		TopMerchants:          merchants,
-	}
-
-	c.JSON(http.StatusOK, summary)
+	})
 }

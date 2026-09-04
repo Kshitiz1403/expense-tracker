@@ -31,33 +31,23 @@ func (r *TransactionRepository) Create(tx *models.Transaction) error {
 	return r.db.Create(tx).Error
 }
 
-// GetByID retrieves a transaction by ID
-func (r *TransactionRepository) GetByID(id uuid.UUID) (*models.Transaction, error) {
+// GetByID retrieves a transaction by ID scoped to a user
+func (r *TransactionRepository) GetByID(id uuid.UUID, userID uuid.UUID) (*models.Transaction, error) {
 	var tx models.Transaction
-	err := r.db.Preload("Category").Preload("AISuggestedCategory").Preload("SourceMessage").First(&tx, "id = ?", id).Error
+	err := r.db.Preload("Category").Preload("AISuggestedCategory").Preload("SourceMessage").
+		First(&tx, "id = ? AND user_id = ?", id, userID).Error
 	if err == gorm.ErrRecordNotFound {
 		return nil, nil
 	}
 	return &tx, err
 }
 
-// GetAll retrieves all transactions with pagination
-func (r *TransactionRepository) GetAll(limit, offset int) ([]models.Transaction, error) {
-	var transactions []models.Transaction
-	err := r.db.Preload("Category").
-		Order("transaction_date DESC, created_at DESC").
-		Limit(limit).
-		Offset(offset).
-		Find(&transactions).Error
-	return transactions, err
-}
-
-// GetRequiringReview retrieves transactions that need manual review
-func (r *TransactionRepository) GetRequiringReview(limit int) ([]models.Transaction, error) {
+// GetRequiringReview retrieves transactions needing manual review for a user
+func (r *TransactionRepository) GetRequiringReview(userID uuid.UUID, limit int) ([]models.Transaction, error) {
 	var transactions []models.Transaction
 	err := r.db.Preload("Category").
 		Preload("AISuggestedCategory").
-		Where("requires_review = ?", true).
+		Where("requires_review = ? AND user_id = ?", true, userID).
 		Order("created_at DESC").
 		Limit(limit).
 		Find(&transactions).Error
@@ -66,25 +56,23 @@ func (r *TransactionRepository) GetRequiringReview(limit int) ([]models.Transact
 
 // Update updates a transaction
 func (r *TransactionRepository) Update(tx *models.Transaction) error {
-	// Nil out preloaded associations so GORM uses the FK fields directly
-	// instead of reconciling category_id from the loaded Category struct.
 	tx.Category = nil
 	tx.AISuggestedCategory = nil
 	tx.SourceMessage = nil
 	return r.db.Save(tx).Error
 }
 
-// Delete deletes a transaction
-func (r *TransactionRepository) Delete(id uuid.UUID) error {
-	return r.db.Delete(&models.Transaction{}, "id = ?", id).Error
+// Delete soft-deletes a transaction scoped to a user
+func (r *TransactionRepository) Delete(id uuid.UUID, userID uuid.UUID) error {
+	return r.db.Where("id = ? AND user_id = ?", id, userID).Delete(&models.Transaction{}).Error
 }
 
-// GetAllFiltered retrieves transactions with filters, pagination, and total count
-func (r *TransactionRepository) GetAllFiltered(f TransactionFilter, limit, offset int) ([]models.Transaction, int64, error) {
+// GetAllFiltered retrieves transactions with filters, pagination, and total count for a user
+func (r *TransactionRepository) GetAllFiltered(f TransactionFilter, userID uuid.UUID, limit, offset int) ([]models.Transaction, int64, error) {
 	var transactions []models.Transaction
 	var total int64
 
-	base := r.db.Model(&models.Transaction{})
+	base := r.db.Model(&models.Transaction{}).Where("user_id = ?", userID)
 	if f.Type != "" {
 		base = base.Where("type = ?", f.Type)
 	}
@@ -116,10 +104,10 @@ func (r *TransactionRepository) GetAllFiltered(f TransactionFilter, limit, offse
 	return transactions, total, err
 }
 
-// GetFiltered retrieves all transactions matching the given filters (no pagination)
-func (r *TransactionRepository) GetFiltered(f TransactionFilter) ([]models.Transaction, error) {
+// GetFiltered retrieves all transactions matching the given filters for a user (no pagination)
+func (r *TransactionRepository) GetFiltered(f TransactionFilter, userID uuid.UUID) ([]models.Transaction, error) {
 	var transactions []models.Transaction
-	q := r.db.Preload("Category").Order("transaction_date DESC, created_at DESC")
+	q := r.db.Preload("Category").Order("transaction_date DESC, created_at DESC").Where("user_id = ?", userID)
 	if f.Type != "" {
 		q = q.Where("type = ?", f.Type)
 	}
@@ -136,7 +124,7 @@ func (r *TransactionRepository) GetFiltered(f TransactionFilter) ([]models.Trans
 	return transactions, err
 }
 
-// GetBySourceID retrieves transaction by source (SMS) ID
+// GetBySourceID retrieves a transaction by source (SMS) ID — internal use by worker
 func (r *TransactionRepository) GetBySourceID(sourceID uuid.UUID) (*models.Transaction, error) {
 	var tx models.Transaction
 	err := r.db.First(&tx, "source_id = ?", sourceID).Error

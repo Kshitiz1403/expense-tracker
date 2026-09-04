@@ -29,29 +29,27 @@ func (r *SMSRepository) Create(sms *models.SMSMessage) error {
 	return r.db.Create(sms).Error
 }
 
-// GetByEventID retrieves an SMS by event ID (for idempotency)
-func (r *SMSRepository) GetByEventID(eventID string) (*models.SMSMessage, error) {
+// GetByEventID retrieves an SMS by event ID scoped to a user (for idempotency)
+func (r *SMSRepository) GetByEventID(eventID string, userID uuid.UUID) (*models.SMSMessage, error) {
 	var sms models.SMSMessage
-	err := r.db.Where("event_id = ?", eventID).First(&sms).Error
+	err := r.db.Where("event_id = ? AND user_id = ?", eventID, userID).First(&sms).Error
 	if err == gorm.ErrRecordNotFound {
 		return nil, nil
 	}
 	return &sms, err
 }
 
-// GetByID retrieves an SMS by ID
-func (r *SMSRepository) GetByID(id uuid.UUID) (*models.SMSMessage, error) {
+// GetByID retrieves an SMS by ID scoped to a user
+func (r *SMSRepository) GetByID(id uuid.UUID, userID uuid.UUID) (*models.SMSMessage, error) {
 	var sms models.SMSMessage
-	err := r.db.First(&sms, "id = ?", id).Error
+	err := r.db.First(&sms, "id = ? AND user_id = ?", id, userID).Error
 	if err == gorm.ErrRecordNotFound {
 		return nil, nil
 	}
 	return &sms, err
 }
 
-// MarkAsProcessed updates the SMS as processed, setting or clearing the
-// processing error (a nil pointer clears any error left over from a
-// previous failed attempt).
+// MarkAsProcessed marks an SMS as processed (internal use — no user scope needed)
 func (r *SMSRepository) MarkAsProcessed(id uuid.UUID, processingError *string) error {
 	updates := map[string]interface{}{
 		"processed":        true,
@@ -60,7 +58,7 @@ func (r *SMSRepository) MarkAsProcessed(id uuid.UUID, processingError *string) e
 	return r.db.Model(&models.SMSMessage{}).Where("id = ?", id).Updates(updates).Error
 }
 
-// GetUnprocessed retrieves all unprocessed SMS messages
+// GetUnprocessed retrieves unprocessed SMS messages (internal worker use)
 func (r *SMSRepository) GetUnprocessed(limit int) ([]models.SMSMessage, error) {
 	var messages []models.SMSMessage
 	err := r.db.Where("processed = ?", false).
@@ -70,16 +68,13 @@ func (r *SMSRepository) GetUnprocessed(limit int) ([]models.SMSMessage, error) {
 	return messages, err
 }
 
-// GetMessages returns processed SMS messages filtered by classification.
-// "non-transaction" (default): SMS with no linked transaction
-// "transaction": SMS that have a linked transaction
-// "all": every processed SMS
-func (r *SMSRepository) GetMessages(filter SMSFilter, limit, offset int) ([]models.SMSMessage, int64, error) {
+// GetMessages returns processed SMS messages filtered by classification, scoped to a user.
+func (r *SMSRepository) GetMessages(filter SMSFilter, userID uuid.UUID, limit, offset int) ([]models.SMSMessage, int64, error) {
 	var messages []models.SMSMessage
 	var total int64
 
 	base := r.db.Model(&models.SMSMessage{}).
-		Where("sms_messages.processed = ?", true).
+		Where("sms_messages.processed = ? AND sms_messages.user_id = ?", true, userID).
 		Joins("LEFT JOIN transactions ON transactions.source_id = sms_messages.id AND transactions.deleted_at IS NULL")
 
 	switch filter.Classification {
