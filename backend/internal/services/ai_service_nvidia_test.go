@@ -10,12 +10,12 @@ import (
 )
 
 func TestNvidiaProvider_GenerateText(t *testing.T) {
-	apiKey := os.Getenv("NVIDIA_API_KEY")
+	apiKey := "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"
 	if apiKey == "" {
 		t.Skip("NVIDIA_API_KEY not set")
 	}
 
-	svc, err := services.NewAIService("nvidia", apiKey, "deepseek-ai/deepseek-v4-flash")
+	svc, err := services.NewAIService("nvidia", apiKey, "deepseek-ai/deepseek-v4-pro")
 	if err != nil {
 		t.Fatalf("failed to create AI service: %v", err)
 	}

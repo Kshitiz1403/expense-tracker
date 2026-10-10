@@ -149,8 +149,8 @@ func (h *SMSHandler) ExtractSMS(c *gin.Context) {
 	// Always record the AI call for audit
 	aiCall := &models.AICall{
 		SMSID:      &sms.ID,
-		Provider:   h.aiService.Provider,
-		Model:      h.aiService.Model,
+		Provider:   meta.Provider,
+		Model:      meta.Model,
 		Prompt:     meta.Prompt,
 		DurationMs: meta.DurationMs,
 		Success:    err == nil,
