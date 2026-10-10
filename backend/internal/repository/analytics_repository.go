@@ -3,6 +3,7 @@ package repository
 import (
 	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -40,7 +41,7 @@ type MerchantRow struct {
 	Count       int
 }
 
-func (r *AnalyticsRepository) GetOverallTotals(dateFrom, dateTo time.Time) (TotalsRow, error) {
+func (r *AnalyticsRepository) GetOverallTotals(userID uuid.UUID, dateFrom, dateTo time.Time) (TotalsRow, error) {
 	var row TotalsRow
 	err := r.db.Raw(`
 		SELECT
@@ -48,13 +49,14 @@ func (r *AnalyticsRepository) GetOverallTotals(dateFrom, dateTo time.Time) (Tota
 			COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) AS total_expense
 		FROM transactions
 		WHERE deleted_at IS NULL
+		  AND user_id = ?
 		  AND transaction_date >= ?
 		  AND transaction_date <= ?
-	`, dateFrom, dateTo).Scan(&row).Error
+	`, userID, dateFrom, dateTo).Scan(&row).Error
 	return row, err
 }
 
-func (r *AnalyticsRepository) GetMonthlySummary(dateFrom, dateTo time.Time) ([]MonthlyRow, error) {
+func (r *AnalyticsRepository) GetMonthlySummary(userID uuid.UUID, dateFrom, dateTo time.Time) ([]MonthlyRow, error) {
 	var rows []MonthlyRow
 	err := r.db.Raw(`
 		SELECT
@@ -63,15 +65,16 @@ func (r *AnalyticsRepository) GetMonthlySummary(dateFrom, dateTo time.Time) ([]M
 			COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) AS total_expense
 		FROM transactions
 		WHERE deleted_at IS NULL
+		  AND user_id = ?
 		  AND transaction_date >= ?
 		  AND transaction_date <= ?
 		GROUP BY DATE_TRUNC('month', transaction_date)
 		ORDER BY DATE_TRUNC('month', transaction_date) ASC
-	`, dateFrom, dateTo).Scan(&rows).Error
+	`, userID, dateFrom, dateTo).Scan(&rows).Error
 	return rows, err
 }
 
-func (r *AnalyticsRepository) GetCategoryBreakdown(dateFrom, dateTo time.Time) ([]CategoryRow, error) {
+func (r *AnalyticsRepository) GetCategoryBreakdown(userID uuid.UUID, dateFrom, dateTo time.Time) ([]CategoryRow, error) {
 	var rows []CategoryRow
 	err := r.db.Raw(`
 		SELECT
@@ -84,16 +87,17 @@ func (r *AnalyticsRepository) GetCategoryBreakdown(dateFrom, dateTo time.Time) (
 		FROM transactions t
 		LEFT JOIN categories c ON c.id = t.category_id
 		WHERE t.deleted_at IS NULL
+		  AND t.user_id = ?
 		  AND t.type = 'expense'
 		  AND t.transaction_date >= ?
 		  AND t.transaction_date <= ?
 		GROUP BY c.id, c.name, c.icon, c.color
 		ORDER BY total_amount DESC
-	`, dateFrom, dateTo).Scan(&rows).Error
+	`, userID, dateFrom, dateTo).Scan(&rows).Error
 	return rows, err
 }
 
-func (r *AnalyticsRepository) GetTopMerchants(dateFrom, dateTo time.Time, limit int) ([]MerchantRow, error) {
+func (r *AnalyticsRepository) GetTopMerchants(userID uuid.UUID, dateFrom, dateTo time.Time, limit int) ([]MerchantRow, error) {
 	var rows []MerchantRow
 	err := r.db.Raw(`
 		SELECT
@@ -102,6 +106,7 @@ func (r *AnalyticsRepository) GetTopMerchants(dateFrom, dateTo time.Time, limit 
 			COUNT(id)   AS count
 		FROM transactions
 		WHERE deleted_at IS NULL
+		  AND user_id = ?
 		  AND type = 'expense'
 		  AND merchant IS NOT NULL
 		  AND merchant != ''
@@ -110,6 +115,6 @@ func (r *AnalyticsRepository) GetTopMerchants(dateFrom, dateTo time.Time, limit 
 		GROUP BY merchant
 		ORDER BY total_amount DESC
 		LIMIT ?
-	`, dateFrom, dateTo, limit).Scan(&rows).Error
+	`, userID, dateFrom, dateTo, limit).Scan(&rows).Error
 	return rows, err
 }

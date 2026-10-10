@@ -19,8 +19,8 @@ func NewTaskClient(riverClient *river.Client[pgx.Tx]) *TaskClient {
 }
 
 // EnqueueProcessSMS inserts an SMS processing job into the River queue.
-func (c *TaskClient) EnqueueProcessSMS(ctx context.Context, smsID uuid.UUID) error {
-	_, err := c.riverClient.Insert(ctx, ProcessSMSArgs{SMSID: smsID}, &river.InsertOpts{
+func (c *TaskClient) EnqueueProcessSMS(ctx context.Context, smsID uuid.UUID, userID uuid.UUID) error {
+	_, err := c.riverClient.Insert(ctx, ProcessSMSArgs{SMSID: smsID, UserID: userID}, &river.InsertOpts{
 		Queue:       "sms",
 		MaxAttempts: 50,
 	})

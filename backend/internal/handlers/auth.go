@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"expense-tracker/internal/config"
+	"expense-tracker/internal/models"
+	"expense-tracker/internal/repository"
 	"net/http"
 	"time"
 
@@ -11,51 +13,100 @@ import (
 )
 
 type AuthHandler struct {
-	cfg *config.AuthConfig
+	cfg      *config.AuthConfig
+	userRepo *repository.UserRepository
 }
 
-func NewAuthHandler(cfg *config.AuthConfig) *AuthHandler {
-	return &AuthHandler{cfg: cfg}
+func NewAuthHandler(cfg *config.AuthConfig, userRepo *repository.UserRepository) *AuthHandler {
+	return &AuthHandler{cfg: cfg, userRepo: userRepo}
 }
 
-// Login authenticates the user and returns a JWT token
+// Login authenticates the user and returns a JWT token.
 // POST /api/auth/login
 func (h *AuthHandler) Login(c *gin.Context) {
 	var input struct {
 		Username string `json:"username" binding:"required"`
 		Password string `json:"password" binding:"required"`
 	}
-
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Username and password are required"})
 		return
 	}
 
-	// Validate username
-	if input.Username != h.cfg.AdminUsername {
+	user, err := h.userRepo.FindByUsername(input.Username)
+	if err != nil || user == nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
 	}
 
-	// Validate password against bcrypt hash
-	if err := bcrypt.CompareHashAndPassword([]byte(h.cfg.AdminPassword), []byte(input.Password)); err != nil {
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(input.Password)); err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
 	}
 
-	// Sign JWT
-	expiry := time.Duration(h.cfg.JWTExpiryHours) * time.Hour
-	claims := jwt.MapClaims{
-		"sub": input.Username,
-		"exp": time.Now().Add(expiry).Unix(),
-		"iat": time.Now().Unix(),
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString([]byte(h.cfg.JWTSecret))
+	tokenString, err := h.signToken(user)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"token": tokenString})
+}
+
+// Register creates a new user account.
+// POST /api/auth/register
+func (h *AuthHandler) Register(c *gin.Context) {
+	var input struct {
+		Username string `json:"username" binding:"required"`
+		Password string `json:"password" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Username and password are required"})
+		return
+	}
+
+	existing, err := h.userRepo.FindByUsername(input.Username)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal error"})
+		return
+	}
+	if existing != nil {
+		c.JSON(http.StatusConflict, gin.H{"error": "Username already taken"})
+		return
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process password"})
+		return
+	}
+
+	user := &models.User{
+		Username:     input.Username,
+		PasswordHash: string(hash),
+	}
+	if err := h.userRepo.Create(user); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+		return
+	}
+
+	tokenString, err := h.signToken(user)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"token": tokenString})
+}
+
+func (h *AuthHandler) signToken(user *models.User) (string, error) {
+	expiry := time.Duration(h.cfg.JWTExpiryHours) * time.Hour
+	claims := jwt.MapClaims{
+		"sub":     user.Username,
+		"user_id": user.ID.String(),
+		"exp":     time.Now().Add(expiry).Unix(),
+		"iat":     time.Now().Unix(),
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(h.cfg.JWTSecret))
 }

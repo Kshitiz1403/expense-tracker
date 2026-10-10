@@ -7,31 +7,42 @@ import (
 	"gorm.io/gorm"
 )
 
+type User struct {
+	ID           uuid.UUID `gorm:"type:uuid;primary_key" json:"id"`
+	Username     string    `gorm:"type:varchar(255);uniqueIndex;not null" json:"username"`
+	PasswordHash string    `gorm:"type:varchar(255);not null" json:"-"`
+	CreatedAt    time.Time `json:"createdAt"`
+	UpdatedAt    time.Time `json:"updatedAt"`
+}
+
 type DataSource struct {
-	ID        uuid.UUID       `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
-	Type      string          `gorm:"type:varchar(50);not null" json:"type"` // sms, email, bank_statement, manual
-	Name      string          `gorm:"type:varchar(255);not null" json:"name"`
-	Status    string          `gorm:"type:varchar(50);not null" json:"status"` // connected, disconnected, syncing
-	LastSync  *time.Time      `json:"lastSync"`
-	Config    *string         `gorm:"type:jsonb" json:"config"` // Store source-specific config as JSON
-	CreatedAt time.Time       `json:"createdAt"`
-	UpdatedAt time.Time       `json:"updatedAt"`
+	ID        uuid.UUID  `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
+	UserID    uuid.UUID  `gorm:"type:uuid;not null;index" json:"userId"`
+	Type      string     `gorm:"type:varchar(50);not null" json:"type"` // sms, email, bank_statement, manual
+	Name      string     `gorm:"type:varchar(255);not null" json:"name"`
+	Status    string     `gorm:"type:varchar(50);not null" json:"status"` // connected, disconnected, syncing
+	LastSync  *time.Time `json:"lastSync"`
+	Config    *string    `gorm:"type:jsonb" json:"config"` // Store source-specific config as JSON
+	CreatedAt time.Time  `json:"createdAt"`
+	UpdatedAt time.Time  `json:"updatedAt"`
 }
 
 type Category struct {
-	ID            uuid.UUID `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
-	Name          string    `gorm:"type:varchar(255);not null" json:"name"`
-	Type          string    `gorm:"type:varchar(50);not null" json:"type"` // income, expense
-	Icon          string    `gorm:"type:varchar(10)" json:"icon"`          // Emoji
-	Color         string    `gorm:"type:varchar(50)" json:"color"`
-	MonthlyBudget *float64  `gorm:"type:decimal(15,2)" json:"monthlyBudget"`
-	IsSystem      bool      `gorm:"default:false" json:"isSystem"` // System categories can't be deleted
-	CreatedAt     time.Time `json:"createdAt"`
-	UpdatedAt     time.Time `json:"updatedAt"`
+	ID            uuid.UUID  `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
+	UserID        *uuid.UUID `gorm:"type:uuid;index" json:"userId"` // nil = system category (shared)
+	Name          string     `gorm:"type:varchar(255);not null" json:"name"`
+	Type          string     `gorm:"type:varchar(50);not null" json:"type"` // income, expense
+	Icon          string     `gorm:"type:varchar(10)" json:"icon"`          // Emoji
+	Color         string     `gorm:"type:varchar(50)" json:"color"`
+	MonthlyBudget *float64   `gorm:"type:decimal(15,2)" json:"monthlyBudget"`
+	IsSystem      bool       `gorm:"default:false" json:"isSystem"` // System categories can't be deleted
+	CreatedAt     time.Time  `json:"createdAt"`
+	UpdatedAt     time.Time  `json:"updatedAt"`
 }
 
 type SMSMessage struct {
 	ID              uuid.UUID `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
+	UserID          uuid.UUID `gorm:"type:uuid;not null;index" json:"userId"`
 	DeviceID        string    `gorm:"type:varchar(255);not null" json:"deviceId"`
 	EventType       string    `gorm:"type:varchar(100);not null" json:"eventType"`
 	EventID         string    `gorm:"type:varchar(255);uniqueIndex;not null" json:"eventId"`
@@ -52,6 +63,7 @@ type SMSMessage struct {
 
 type Transaction struct {
 	ID                    uuid.UUID   `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
+	UserID                uuid.UUID   `gorm:"type:uuid;not null;index" json:"userId"`
 	Description           string      `gorm:"type:text;not null" json:"description"`
 	Amount                float64     `gorm:"type:decimal(15,2);not null" json:"amount"`
 	Type                  string      `gorm:"type:varchar(50);not null" json:"type"` // income, expense
@@ -92,6 +104,7 @@ type AICall struct {
 
 type Trip struct {
 	ID           uuid.UUID      `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
+	UserID       uuid.UUID      `gorm:"type:uuid;not null;index" json:"userId"`
 	Name         string         `gorm:"type:varchar(255);not null" json:"name"`
 	Description  *string        `gorm:"type:text" json:"description"`
 	StartDate    time.Time      `gorm:"not null" json:"startDate"`
@@ -111,6 +124,13 @@ type TransactionTrip struct {
 func (TransactionTrip) TableName() string { return "transaction_trips" }
 
 // BeforeCreate hook to set UUID
+func (u *User) BeforeCreate(tx *gorm.DB) error {
+	if u.ID == uuid.Nil {
+		u.ID = uuid.New()
+	}
+	return nil
+}
+
 func (d *DataSource) BeforeCreate(tx *gorm.DB) error {
 	if d.ID == uuid.Nil {
 		d.ID = uuid.New()

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"expense-tracker/internal/middleware"
 	"expense-tracker/internal/models"
 	"expense-tracker/internal/repository"
 	"expense-tracker/internal/services"
@@ -39,9 +40,15 @@ func NewSMSHandler(
 	}
 }
 
-// ListSMS returns processed SMS messages filtered by classification
-// GET /api/sms?page=1&limit=20&search=&date_from=&date_to=&classification=non-transaction
+// ListSMS returns processed SMS messages filtered by classification.
+// GET /api/sms
 func (h *SMSHandler) ListSMS(c *gin.Context) {
+	userID, ok := middleware.GetUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 	if page < 1 {
@@ -56,7 +63,6 @@ func (h *SMSHandler) ListSMS(c *gin.Context) {
 		Search:         c.Query("search"),
 		Classification: c.Query("classification"),
 	}
-
 	if from := c.Query("date_from"); from != "" {
 		t, err := time.Parse("2006-01-02", from)
 		if err != nil {
@@ -75,18 +81,12 @@ func (h *SMSHandler) ListSMS(c *gin.Context) {
 		filter.DateTo = &endOfDay
 	}
 
-	messages, total, err := h.smsRepo.GetMessages(filter, limit, offset)
+	messages, total, err := h.smsRepo.GetMessages(filter, userID, limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch SMS messages"})
 		return
 	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"messages": messages,
-		"total":    total,
-		"page":     page,
-		"limit":    limit,
-	})
+	c.JSON(http.StatusOK, gin.H{"messages": messages, "total": total, "page": page, "limit": limit})
 }
 
 type convertSMSInput struct {
@@ -94,7 +94,7 @@ type convertSMSInput struct {
 	Type            *string    `json:"type"`
 	Merchant        *string    `json:"merchant"`
 	CategoryID      *uuid.UUID `json:"category_id"`
-	CategoryName    *string    `json:"category_name"` // used when category_id is nil
+	CategoryName    *string    `json:"category_name"`
 	Description     *string    `json:"description"`
 	TransactionDate *string    `json:"transaction_date"`
 }
@@ -112,14 +112,19 @@ type extractResponse struct {
 // ExtractSMS calls AI to preview transaction details but does NOT create a transaction.
 // POST /api/sms/:id/extract
 func (h *SMSHandler) ExtractSMS(c *gin.Context) {
-	idStr := c.Param("id")
-	smsID, err := uuid.Parse(idStr)
+	userID, ok := middleware.GetUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	smsID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid SMS ID"})
 		return
 	}
 
-	sms, err := h.smsRepo.GetByID(smsID)
+	sms, err := h.smsRepo.GetByID(smsID, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch SMS"})
 		return
@@ -146,7 +151,6 @@ func (h *SMSHandler) ExtractSMS(c *gin.Context) {
 
 	txData, meta, err := h.aiService.ExtractTransaction(c.Request.Context(), sms.Message)
 
-	// Always record the AI call for audit
 	aiCall := &models.AICall{
 		SMSID:      &sms.ID,
 		Provider:   h.aiService.Provider,
@@ -173,10 +177,9 @@ func (h *SMSHandler) ExtractSMS(c *gin.Context) {
 		log.Printf("Warning: failed to save AI call: %v", createErr)
 	}
 
-	// Look up existing category — do NOT create if missing
 	var categoryID *uuid.UUID
 	if txData.Category != "" {
-		category, _ := h.catRepo.GetByName(txData.Category)
+		category, _ := h.catRepo.GetByName(txData.Category, userID)
 		if category != nil {
 			categoryID = &category.ID
 		}
@@ -196,14 +199,19 @@ func (h *SMSHandler) ExtractSMS(c *gin.Context) {
 // ConvertSMS converts an SMS message into a transaction using manually supplied fields.
 // POST /api/sms/:id/convert
 func (h *SMSHandler) ConvertSMS(c *gin.Context) {
-	idStr := c.Param("id")
-	smsID, err := uuid.Parse(idStr)
+	userID, ok := middleware.GetUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	smsID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid SMS ID"})
 		return
 	}
 
-	sms, err := h.smsRepo.GetByID(smsID)
+	sms, err := h.smsRepo.GetByID(smsID, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch SMS"})
 		return
@@ -213,7 +221,6 @@ func (h *SMSHandler) ConvertSMS(c *gin.Context) {
 		return
 	}
 
-	// Prevent double-conversion
 	existing, err := h.txRepo.GetBySourceID(smsID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
@@ -230,7 +237,7 @@ func (h *SMSHandler) ConvertSMS(c *gin.Context) {
 		return
 	}
 
-	transaction, err := h.convertManually(sms, &input)
+	transaction, err := h.convertManually(sms, &input, userID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -249,9 +256,7 @@ func (h *SMSHandler) ConvertSMS(c *gin.Context) {
 	c.JSON(http.StatusCreated, transaction)
 }
 
-// convertManually builds a transaction from user-supplied fields.
-// If CategoryID is nil but CategoryName is set, finds or creates the category.
-func (h *SMSHandler) convertManually(sms *models.SMSMessage, input *convertSMSInput) (*models.Transaction, error) {
+func (h *SMSHandler) convertManually(sms *models.SMSMessage, input *convertSMSInput, userID uuid.UUID) (*models.Transaction, error) {
 	if input.Amount == nil || *input.Amount <= 0 {
 		return nil, fmt.Errorf("amount is required and must be positive")
 	}
@@ -271,12 +276,11 @@ func (h *SMSHandler) convertManually(sms *models.SMSMessage, input *convertSMSIn
 		txDate = parsed
 	}
 
-	// Resolve category: use provided ID, or find-or-create by name
 	categoryID := input.CategoryID
 	if categoryID == nil && input.CategoryName != nil && *input.CategoryName != "" {
-		category, _ := h.catRepo.GetByName(*input.CategoryName)
+		category, _ := h.catRepo.GetByName(*input.CategoryName, userID)
 		if category == nil {
-			category = &models.Category{Name: *input.CategoryName, Type: *input.Type}
+			category = &models.Category{UserID: &userID, Name: *input.CategoryName, Type: *input.Type}
 			if err := h.catRepo.Create(category); err != nil {
 				log.Printf("Warning: failed to create category %q: %v", *input.CategoryName, err)
 				category = nil
@@ -289,6 +293,7 @@ func (h *SMSHandler) convertManually(sms *models.SMSMessage, input *convertSMSIn
 
 	confidence := 1.0
 	return &models.Transaction{
+		UserID:          userID,
 		Description:     *input.Description,
 		Amount:          *input.Amount,
 		Type:            *input.Type,

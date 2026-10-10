@@ -18,25 +18,23 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 	"github.com/riverqueue/river/rivermigrate"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
 func main() {
-	// Load configuration
 	cfg := config.Load()
-
-	// Set Gin mode
 	gin.SetMode(cfg.Server.GinMode)
 
-	// Initialize database
 	db, err := initDatabase(cfg)
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 
-	// Auto-migrate models
+	// Auto-migrate — User must come first (other tables reference it)
 	if err := db.AutoMigrate(
+		&models.User{},
 		&models.DataSource{},
 		&models.Category{},
 		&models.SMSMessage{},
@@ -47,16 +45,16 @@ func main() {
 	); err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
-
 	log.Println("Database migrated successfully")
 
-	// Seed default categories
+	// Seed default categories (system-level, no user)
 	if err := repository.SeedDefaultCategories(db); err != nil {
 		log.Printf("Warning: Failed to seed categories: %v", err)
 	}
 
 	// Initialize repositories
-	dsRepo  := repository.NewDataSourceRepository(db)
+	userRepo := repository.NewUserRepository(db)
+	dsRepo := repository.NewDataSourceRepository(db)
 	smsRepo := repository.NewSMSRepository(db)
 	txRepo := repository.NewTransactionRepository(db)
 	catRepo := repository.NewCategoryRepository(db)
@@ -64,10 +62,14 @@ func main() {
 	analyticsRepo := repository.NewAnalyticsRepository(db)
 	tripRepo := repository.NewTripRepository(db)
 
+	// Seed admin user from env vars (idempotent)
+	if err := seedAdminUser(userRepo, cfg.Auth.AdminUsername, cfg.Auth.AdminPassword); err != nil {
+		log.Printf("Warning: Failed to seed admin user: %v", err)
+	}
+
 	// Initialize services
 	smsParser := services.NewSMSParser()
 
-	// Initialize AI service (skip if no API key)
 	var aiService *services.AIService
 	var processor *services.TransactionProcessor
 
@@ -119,9 +121,9 @@ func main() {
 	}()
 
 	// Initialize handlers
-	authHandler       := handlers.NewAuthHandler(&cfg.Auth)
+	authHandler := handlers.NewAuthHandler(&cfg.Auth, userRepo)
 	dataSourceHandler := handlers.NewDataSourceHandler(dsRepo, cfg.Server.APIBaseURL)
-	webhookHandler := handlers.NewWebhookHandler(smsRepo, processor, taskClient, cfg.SMS.WebhookID)
+	webhookHandler := handlers.NewWebhookHandler(smsRepo, dsRepo, processor, taskClient, cfg.SMS.WebhookID)
 	categoryHandler := handlers.NewCategoryHandler(catRepo)
 	transactionHandler := handlers.NewTransactionHandler(txRepo, catRepo, tripRepo)
 	analyticsHandler := handlers.NewAnalyticsHandler(analyticsRepo)
@@ -137,30 +139,24 @@ func main() {
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
-
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
 			return
 		}
-
 		c.Next()
 	})
 
-	// Health check
 	router.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"status":  "ok",
-			"message": "Expense Tracker API is running",
-		})
+		c.JSON(200, gin.H{"status": "ok", "message": "Expense Tracker API is running"})
 	})
 
-	// API routes
 	api := router.Group("/api")
 	{
 		// Public: auth
 		api.POST("/auth/login", authHandler.Login)
+		api.POST("/auth/register", authHandler.Register)
 
-		// Public: SMS webhook (has its own secret-based verification)
+		// Public: SMS webhooks (user identified via X-User-ID header + device verification)
 		api.POST("/webhooks/sms", webhookHandler.HandleSMSWebhook)
 		api.POST("/webhooks/sms/v2", webhookHandler.HandleSMSWebhookV2)
 
@@ -172,7 +168,6 @@ func main() {
 				c.JSON(200, gin.H{"message": "pong"})
 			})
 
-			// Categories
 			categories := protected.Group("/categories")
 			{
 				categories.GET("", categoryHandler.GetCategories)
@@ -180,7 +175,6 @@ func main() {
 				categories.POST("", categoryHandler.CreateCategory)
 			}
 
-			// Transactions
 			transactions := protected.Group("/transactions")
 			{
 				transactions.GET("", transactionHandler.GetTransactions)
@@ -194,7 +188,6 @@ func main() {
 				transactions.DELETE("/:id", transactionHandler.DeleteTransaction)
 			}
 
-			// Trips
 			trips := protected.Group("/trips")
 			{
 				trips.GET("", tripHandler.ListTrips)
@@ -208,13 +201,11 @@ func main() {
 				trips.GET("/:id/summary", tripHandler.GetTripSummary)
 			}
 
-			// Analytics
 			analytics := protected.Group("/analytics")
 			{
 				analytics.GET("/summary", analyticsHandler.GetSummary)
 			}
 
-			// Data Sources
 			dataSources := protected.Group("/datasources")
 			{
 				dataSources.GET("", dataSourceHandler.List)
@@ -222,7 +213,6 @@ func main() {
 				dataSources.GET("/:id/sms-config", dataSourceHandler.DownloadSMSConfig)
 			}
 
-			// SMS Messages (browse unconverted + manual conversion)
 			sms := protected.Group("/sms")
 			{
 				sms.GET("", smsHandler.ListSMS)
@@ -232,12 +222,46 @@ func main() {
 		}
 	}
 
-	// Start server
 	addr := fmt.Sprintf(":%s", cfg.Server.Port)
 	log.Printf("Starting server on %s", addr)
 	if err := router.Run(addr); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
+}
+
+// seedAdminUser creates the admin user from env vars if it doesn't already exist.
+func seedAdminUser(userRepo *repository.UserRepository, username, passwordHash string) error {
+	if username == "" || passwordHash == "" {
+		log.Println("ADMIN_USERNAME or ADMIN_PASSWORD not set — skipping admin seed")
+		return nil
+	}
+
+	existing, err := userRepo.FindByUsername(username)
+	if err != nil {
+		return fmt.Errorf("failed to check admin user: %w", err)
+	}
+	if existing != nil {
+		return nil // already exists
+	}
+
+	// ADMIN_PASSWORD is expected to be a bcrypt hash.
+	// Validate it looks like a bcrypt hash; if not, hash it now.
+	hash := passwordHash
+	if len(passwordHash) < 20 || passwordHash[:4] != "$2a$" && passwordHash[:4] != "$2b$" {
+		generated, err := bcrypt.GenerateFromPassword([]byte(passwordHash), bcrypt.DefaultCost)
+		if err != nil {
+			return fmt.Errorf("failed to hash admin password: %w", err)
+		}
+		hash = string(generated)
+		log.Println("Warning: ADMIN_PASSWORD was not a bcrypt hash — hashed it at startup")
+	}
+
+	admin := &models.User{Username: username, PasswordHash: hash}
+	if err := userRepo.Create(admin); err != nil {
+		return fmt.Errorf("failed to create admin user: %w", err)
+	}
+	log.Printf("Admin user %q created", username)
+	return nil
 }
 
 func initRiverPool(ctx context.Context, cfg *config.Config) (*pgxpool.Pool, error) {
@@ -273,17 +297,13 @@ func initDatabase(cfg *config.Config) (*gorm.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
-
-	// Test connection
 	sqlDB, err := db.DB()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get database instance: %w", err)
 	}
-
 	if err := sqlDB.Ping(); err != nil {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
-
 	log.Println("Database connection established")
 	return db, nil
 }

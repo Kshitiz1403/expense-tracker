@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"expense-tracker/internal/middleware"
 	"expense-tracker/internal/models"
 	"expense-tracker/internal/repository"
 
@@ -22,6 +23,12 @@ func NewTripHandler(repo *repository.TripRepository) *TripHandler {
 
 // GET /api/trips
 func (h *TripHandler) ListTrips(c *gin.Context) {
+	userID, ok := middleware.GetUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 	if page < 1 {
@@ -32,29 +39,29 @@ func (h *TripHandler) ListTrips(c *gin.Context) {
 	}
 	offset := (page - 1) * limit
 
-	trips, total, err := h.tripRepo.GetAll(limit, offset)
+	trips, total, err := h.tripRepo.GetAll(userID, limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch trips"})
 		return
 	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"trips": trips,
-		"total": total,
-		"page":  page,
-		"limit": limit,
-	})
+	c.JSON(http.StatusOK, gin.H{"trips": trips, "total": total, "page": page, "limit": limit})
 }
 
 // GET /api/trips/:id
 func (h *TripHandler) GetTrip(c *gin.Context) {
+	userID, ok := middleware.GetUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid trip ID"})
 		return
 	}
 
-	trip, err := h.tripRepo.GetByID(id)
+	trip, err := h.tripRepo.GetByID(id, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch trip"})
 		return
@@ -63,20 +70,23 @@ func (h *TripHandler) GetTrip(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Trip not found"})
 		return
 	}
-
 	c.JSON(http.StatusOK, trip)
-}
-
-type createTripInput struct {
-	Name        string  `json:"name" binding:"required"`
-	Description *string `json:"description"`
-	StartDate   string  `json:"start_date" binding:"required"`
-	EndDate     string  `json:"end_date" binding:"required"`
 }
 
 // POST /api/trips
 func (h *TripHandler) CreateTrip(c *gin.Context) {
-	var input createTripInput
+	userID, ok := middleware.GetUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	var input struct {
+		Name        string  `json:"name" binding:"required"`
+		Description *string `json:"description"`
+		StartDate   string  `json:"start_date" binding:"required"`
+		EndDate     string  `json:"end_date" binding:"required"`
+	}
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -98,36 +108,34 @@ func (h *TripHandler) CreateTrip(c *gin.Context) {
 	}
 
 	trip := &models.Trip{
+		UserID:      userID,
 		Name:        input.Name,
 		Description: input.Description,
 		StartDate:   startDate,
 		EndDate:     endDate,
 	}
-
 	if err := h.tripRepo.Create(trip); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create trip"})
 		return
 	}
-
 	c.JSON(http.StatusCreated, trip)
-}
-
-type updateTripInput struct {
-	Name        *string `json:"name"`
-	Description *string `json:"description"`
-	StartDate   *string `json:"start_date"`
-	EndDate     *string `json:"end_date"`
 }
 
 // PUT /api/trips/:id
 func (h *TripHandler) UpdateTrip(c *gin.Context) {
+	userID, ok := middleware.GetUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid trip ID"})
 		return
 	}
 
-	trip, err := h.tripRepo.GetByID(id)
+	trip, err := h.tripRepo.GetByID(id, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch trip"})
 		return
@@ -137,7 +145,12 @@ func (h *TripHandler) UpdateTrip(c *gin.Context) {
 		return
 	}
 
-	var input updateTripInput
+	var input struct {
+		Name        *string `json:"name"`
+		Description *string `json:"description"`
+		StartDate   *string `json:"start_date"`
+		EndDate     *string `json:"end_date"`
+	}
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -165,7 +178,6 @@ func (h *TripHandler) UpdateTrip(c *gin.Context) {
 		}
 		trip.EndDate = parsed
 	}
-
 	if trip.EndDate.Before(trip.StartDate) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "end_date must be on or after start_date"})
 		return
@@ -175,19 +187,24 @@ func (h *TripHandler) UpdateTrip(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update trip"})
 		return
 	}
-
 	c.JSON(http.StatusOK, trip)
 }
 
 // DELETE /api/trips/:id
 func (h *TripHandler) DeleteTrip(c *gin.Context) {
+	userID, ok := middleware.GetUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid trip ID"})
 		return
 	}
 
-	trip, err := h.tripRepo.GetByID(id)
+	trip, err := h.tripRepo.GetByID(id, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch trip"})
 		return
@@ -197,23 +214,28 @@ func (h *TripHandler) DeleteTrip(c *gin.Context) {
 		return
 	}
 
-	if err := h.tripRepo.Delete(id); err != nil {
+	if err := h.tripRepo.Delete(id, userID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete trip"})
 		return
 	}
-
 	c.JSON(http.StatusOK, gin.H{"message": "Trip deleted successfully"})
 }
 
 // GET /api/trips/:id/transactions
 func (h *TripHandler) GetTripTransactions(c *gin.Context) {
+	userID, ok := middleware.GetUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid trip ID"})
 		return
 	}
 
-	trip, err := h.tripRepo.GetByID(id)
+	trip, err := h.tripRepo.GetByID(id, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch trip"})
 		return
@@ -238,28 +260,33 @@ func (h *TripHandler) GetTripTransactions(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch transactions"})
 		return
 	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"transactions": transactions,
-		"total":        total,
-		"page":         page,
-		"limit":        limit,
-	})
-}
-
-type addTransactionInput struct {
-	TransactionID string `json:"transaction_id" binding:"required"`
+	c.JSON(http.StatusOK, gin.H{"transactions": transactions, "total": total, "page": page, "limit": limit})
 }
 
 // POST /api/trips/:id/transactions
 func (h *TripHandler) AddTransactionToTrip(c *gin.Context) {
+	userID, ok := middleware.GetUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
 	tripID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid trip ID"})
 		return
 	}
 
-	var input addTransactionInput
+	// Verify the trip belongs to this user
+	trip, err := h.tripRepo.GetByID(tripID, userID)
+	if err != nil || trip == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Trip not found"})
+		return
+	}
+
+	var input struct {
+		TransactionID string `json:"transaction_id" binding:"required"`
+	}
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -275,15 +302,27 @@ func (h *TripHandler) AddTransactionToTrip(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add transaction to trip"})
 		return
 	}
-
 	c.JSON(http.StatusOK, gin.H{"message": "Transaction added to trip"})
 }
 
 // DELETE /api/trips/:id/transactions/:tx_id
 func (h *TripHandler) RemoveTransactionFromTrip(c *gin.Context) {
+	userID, ok := middleware.GetUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
 	tripID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid trip ID"})
+		return
+	}
+
+	// Verify the trip belongs to this user
+	trip, err := h.tripRepo.GetByID(tripID, userID)
+	if err != nil || trip == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Trip not found"})
 		return
 	}
 
@@ -297,19 +336,24 @@ func (h *TripHandler) RemoveTransactionFromTrip(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove transaction from trip"})
 		return
 	}
-
 	c.JSON(http.StatusOK, gin.H{"message": "Transaction removed from trip"})
 }
 
 // GET /api/trips/:id/summary
 func (h *TripHandler) GetTripSummary(c *gin.Context) {
+	userID, ok := middleware.GetUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid trip ID"})
 		return
 	}
 
-	trip, err := h.tripRepo.GetByID(id)
+	trip, err := h.tripRepo.GetByID(id, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch trip"})
 		return
@@ -324,6 +368,5 @@ func (h *TripHandler) GetTripSummary(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch trip summary"})
 		return
 	}
-
 	c.JSON(http.StatusOK, summary)
 }

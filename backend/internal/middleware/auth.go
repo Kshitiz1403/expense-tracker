@@ -6,9 +6,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
-// JWTAuth returns a Gin middleware that validates Bearer tokens
+const contextKeyUserID = "user_id"
+
+// JWTAuth validates the Bearer token and stores the user_id in the Gin context.
 func JWTAuth(jwtSecret string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
@@ -32,6 +35,32 @@ func JWTAuth(jwtSecret string) gin.HandlerFunc {
 			return
 		}
 
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			c.Abort()
+			return
+		}
+
+		userIDStr, _ := claims["user_id"].(string)
+		userID, err := uuid.Parse(userIDStr)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			c.Abort()
+			return
+		}
+
+		c.Set(contextKeyUserID, userID)
 		c.Next()
 	}
+}
+
+// GetUserID retrieves the authenticated user's ID from the Gin context.
+func GetUserID(c *gin.Context) (uuid.UUID, bool) {
+	v, exists := c.Get(contextKeyUserID)
+	if !exists {
+		return uuid.Nil, false
+	}
+	id, ok := v.(uuid.UUID)
+	return id, ok
 }

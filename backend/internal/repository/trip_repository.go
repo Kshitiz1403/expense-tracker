@@ -21,19 +21,19 @@ func (r *TripRepository) Create(trip *models.Trip) error {
 	return r.db.Create(trip).Error
 }
 
-func (r *TripRepository) GetByID(id uuid.UUID) (*models.Trip, error) {
+func (r *TripRepository) GetByID(id uuid.UUID, userID uuid.UUID) (*models.Trip, error) {
 	var trip models.Trip
-	err := r.db.First(&trip, "id = ?", id).Error
+	err := r.db.First(&trip, "id = ? AND user_id = ?", id, userID).Error
 	if err == gorm.ErrRecordNotFound {
 		return nil, nil
 	}
 	return &trip, err
 }
 
-func (r *TripRepository) GetAll(limit, offset int) ([]models.Trip, int64, error) {
+func (r *TripRepository) GetAll(userID uuid.UUID, limit, offset int) ([]models.Trip, int64, error) {
 	var trips []models.Trip
 	var total int64
-	base := r.db.Model(&models.Trip{})
+	base := r.db.Model(&models.Trip{}).Where("user_id = ?", userID)
 	if err := base.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
@@ -46,8 +46,8 @@ func (r *TripRepository) Update(trip *models.Trip) error {
 	return r.db.Save(trip).Error
 }
 
-func (r *TripRepository) Delete(id uuid.UUID) error {
-	return r.db.Delete(&models.Trip{}, "id = ?", id).Error
+func (r *TripRepository) Delete(id uuid.UUID, userID uuid.UUID) error {
+	return r.db.Where("id = ? AND user_id = ?", id, userID).Delete(&models.Trip{}).Error
 }
 
 // --- Association management ---
@@ -89,12 +89,12 @@ func (r *TripRepository) GetTransactions(tripID uuid.UUID, limit, offset int) ([
 	return transactions, total, err
 }
 
-// GetTripsForTransaction returns all trips a transaction belongs to.
-func (r *TripRepository) GetTripsForTransaction(transactionID uuid.UUID) ([]models.Trip, error) {
+// GetTripsForTransaction returns all trips a transaction belongs to (scoped to user).
+func (r *TripRepository) GetTripsForTransaction(transactionID uuid.UUID, userID uuid.UUID) ([]models.Trip, error) {
 	var trips []models.Trip
 	err := r.db.
 		Joins("JOIN transaction_trips tt ON tt.trip_id = trips.id").
-		Where("tt.transaction_id = ? AND trips.deleted_at IS NULL", transactionID).
+		Where("tt.transaction_id = ? AND trips.deleted_at IS NULL AND trips.user_id = ?", transactionID, userID).
 		Order("trips.start_date DESC").
 		Find(&trips).Error
 	return trips, err
@@ -104,7 +104,6 @@ func (r *TripRepository) GetTripsForTransaction(transactionID uuid.UUID) ([]mode
 
 // GetTripSummary returns total spending and category breakdown for a trip.
 func (r *TripRepository) GetTripSummary(tripID uuid.UUID) (models.TripSummary, error) {
-	// Totals
 	var totals struct {
 		TotalExpense float64
 		TotalIncome  float64
@@ -123,7 +122,6 @@ func (r *TripRepository) GetTripSummary(tripID uuid.UUID) (models.TripSummary, e
 		return models.TripSummary{}, err
 	}
 
-	// Category breakdown (expenses only)
 	type catRow struct {
 		CategoryID   string
 		CategoryName string
@@ -169,7 +167,6 @@ func (r *TripRepository) GetTripSummary(tripID uuid.UUID) (models.TripSummary, e
 		})
 	}
 
-	// Get trip name
 	var trip models.Trip
 	r.db.Select("id, name").First(&trip, "id = ?", tripID)
 

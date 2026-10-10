@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"expense-tracker/internal/middleware"
 	"expense-tracker/internal/models"
 	"expense-tracker/internal/repository"
 	"net/http"
@@ -17,19 +18,24 @@ func NewCategoryHandler(repo *repository.CategoryRepository) *CategoryHandler {
 	return &CategoryHandler{repo: repo}
 }
 
-// GetCategories returns all categories
+// GetCategories returns system categories and the user's own categories.
 // GET /api/categories
 func (h *CategoryHandler) GetCategories(c *gin.Context) {
-	categories, err := h.repo.GetAll()
+	userID, ok := middleware.GetUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	categories, err := h.repo.GetAll(userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch categories"})
 		return
 	}
-
 	c.JSON(http.StatusOK, categories)
 }
 
-// GetCategory returns a single category by ID
+// GetCategory returns a single category by ID.
 // GET /api/categories/:id
 func (h *CategoryHandler) GetCategory(c *gin.Context) {
 	idStr := c.Param("id")
@@ -44,18 +50,22 @@ func (h *CategoryHandler) GetCategory(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch category"})
 		return
 	}
-
 	if category == nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Category not found"})
 		return
 	}
-
 	c.JSON(http.StatusOK, category)
 }
 
-// CreateCategory creates a new category
+// CreateCategory creates a new user-owned category.
 // POST /api/categories
 func (h *CategoryHandler) CreateCategory(c *gin.Context) {
+	userID, ok := middleware.GetUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
 	var input struct {
 		Name          string   `json:"name" binding:"required"`
 		Type          string   `json:"type" binding:"required,oneof=income expense"`
@@ -63,14 +73,12 @@ func (h *CategoryHandler) CreateCategory(c *gin.Context) {
 		Color         *string  `json:"color"`
 		MonthlyBudget *float64 `json:"monthly_budget"`
 	}
-
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Check if category already exists
-	existing, err := h.repo.GetByName(input.Name)
+	existing, err := h.repo.GetByName(input.Name, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check existing category"})
 		return
@@ -80,24 +88,21 @@ func (h *CategoryHandler) CreateCategory(c *gin.Context) {
 		return
 	}
 
-	// Create category
 	category := &models.Category{
+		UserID:        &userID,
 		Name:          input.Name,
 		Type:          input.Type,
 		Icon:          stringValue(input.Icon),
 		Color:         stringValue(input.Color),
 		MonthlyBudget: input.MonthlyBudget,
 	}
-
 	if err := h.repo.Create(category); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create category"})
 		return
 	}
-
 	c.JSON(http.StatusCreated, category)
 }
 
-// Helper to convert *string to string
 func stringValue(s *string) string {
 	if s == nil {
 		return ""

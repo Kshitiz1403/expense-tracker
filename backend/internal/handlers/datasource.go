@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"expense-tracker/internal/middleware"
 	"expense-tracker/internal/models"
 	"expense-tracker/internal/repository"
 	"fmt"
@@ -24,30 +25,35 @@ func NewDataSourceHandler(dsRepo *repository.DataSourceRepository, apiBaseURL st
 	return &DataSourceHandler{dsRepo: dsRepo, apiBaseURL: apiBaseURL}
 }
 
-
 // gatewayImportEntry is a single entry in the importable config JSON array.
 type gatewayImportEntry struct {
-	Key                 string `json:"key"`
-	Sender              string `json:"sender"`
-	IsSenderRegex       bool   `json:"is_sender_regex"`
-	SMSFilter           string `json:"sms_filter"`
-	URL                 string `json:"url"`
-	SimSlot             int    `json:"sim_slot"`
-	Template            string `json:"template"`
-	Headers             string `json:"headers"`
-	RetriesNumber       int    `json:"retries_number"`
-	IgnoreSSL           bool   `json:"ignore_ssl"`
-	ChunkedMode         bool   `json:"chunked_mode"`
-	IsSMSEnabled        bool   `json:"is_sms_enabled"`
-	SignHMACSHA256      bool   `json:"sign_hmac_sha256"`
+	Key                  string `json:"key"`
+	Sender               string `json:"sender"`
+	IsSenderRegex        bool   `json:"is_sender_regex"`
+	SMSFilter            string `json:"sms_filter"`
+	URL                  string `json:"url"`
+	SimSlot              int    `json:"sim_slot"`
+	Template             string `json:"template"`
+	Headers              string `json:"headers"`
+	RetriesNumber        int    `json:"retries_number"`
+	IgnoreSSL            bool   `json:"ignore_ssl"`
+	ChunkedMode          bool   `json:"chunked_mode"`
+	IsSMSEnabled         bool   `json:"is_sms_enabled"`
+	SignHMACSHA256       bool   `json:"sign_hmac_sha256"`
 	SignHMACSHA256Secret string `json:"sign_hmac_sha256_secret"`
-	StoreFailed         bool   `json:"store_failed"`
-	LocalMode           bool   `json:"local_mode"`
+	StoreFailed          bool   `json:"store_failed"`
+	LocalMode            bool   `json:"local_mode"`
 }
 
-// List returns all data sources.
+// List returns the authenticated user's data sources.
 func (h *DataSourceHandler) List(c *gin.Context) {
-	sources, err := h.dsRepo.List()
+	userID, ok := middleware.GetUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	sources, err := h.dsRepo.List(userID)
 	if err != nil {
 		log.Printf("Error listing data sources: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch data sources"})
@@ -56,8 +62,14 @@ func (h *DataSourceHandler) List(c *gin.Context) {
 	c.JSON(http.StatusOK, sources)
 }
 
-// Create registers a new SMS gateway data source.
+// Create registers a new SMS gateway data source for the authenticated user.
 func (h *DataSourceHandler) Create(c *gin.Context) {
+	userID, ok := middleware.GetUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
 	var body struct {
 		DeviceID string `json:"deviceId" binding:"required"`
 	}
@@ -71,7 +83,7 @@ func (h *DataSourceHandler) Create(c *gin.Context) {
 		return
 	}
 
-	entry := buildGatewayEntry(body.DeviceID, h.apiBaseURL)
+	entry := buildGatewayEntry(body.DeviceID, userID, h.apiBaseURL)
 	cfgJSON, err := json.Marshal(entry)
 	if err != nil {
 		log.Printf("Error marshaling config: %v", err)
@@ -81,6 +93,7 @@ func (h *DataSourceHandler) Create(c *gin.Context) {
 	cfgStr := string(cfgJSON)
 
 	ds := &models.DataSource{
+		UserID: userID,
 		Type:   "sms",
 		Name:   body.DeviceID,
 		Status: "connected",
@@ -91,19 +104,24 @@ func (h *DataSourceHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create data source"})
 		return
 	}
-
 	c.JSON(http.StatusCreated, ds)
 }
 
 // DownloadSMSConfig returns the importable JSON config for the SMS Forwarder app.
 func (h *DataSourceHandler) DownloadSMSConfig(c *gin.Context) {
+	userID, ok := middleware.GetUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid data source ID"})
 		return
 	}
 
-	ds, err := h.dsRepo.GetByID(id)
+	ds, err := h.dsRepo.GetByID(id, userID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Data source not found"})
 		return
@@ -112,11 +130,11 @@ func (h *DataSourceHandler) DownloadSMSConfig(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Config download only supported for SMS sources"})
 		return
 	}
-
 	if ds.Config == nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "No config stored for this data source"})
 		return
 	}
+
 	var entry gatewayImportEntry
 	if err := json.Unmarshal([]byte(*ds.Config), &entry); err != nil {
 		log.Printf("Error parsing data source config: %v", err)
@@ -125,35 +143,38 @@ func (h *DataSourceHandler) DownloadSMSConfig(c *gin.Context) {
 	}
 
 	out, _ := json.MarshalIndent([]gatewayImportEntry{entry}, "", "  ")
-
 	c.Header("Content-Disposition", "attachment; filename=\"sms-gateway-config.json\"")
 	c.Data(http.StatusOK, "application/json", out)
 }
 
-func buildGatewayEntry(deviceID, apiBaseURL string) gatewayImportEntry {
+// buildGatewayEntry constructs the importable SMS Forwarder config entry.
+// The user's ID is embedded in the X-User-ID header so the webhook handler
+// can identify the owning user without a DB lookup.
+func buildGatewayEntry(deviceID string, userID uuid.UUID, apiBaseURL string) gatewayImportEntry {
 	key := fmt.Sprintf("%d_%06d", time.Now().UnixMilli(), rand.Intn(1_000_000))
 	webhookURL := strings.TrimRight(apiBaseURL, "/") + "/api/webhooks/sms/v2"
 	template := fmt.Sprintf(
 		`{"from":"%%from%%","text":"%%text%%","sentStamp":%%sentStamp%%,"receivedStamp":%%receivedStamp%%,"sim":"%%sim%%","deviceId":%q,"event":"sms:received"}`,
 		deviceID,
 	)
+	headers := fmt.Sprintf(`{"User-agent":"SMS Forwarder App","X-User-ID":%q}`, userID.String())
 
 	return gatewayImportEntry{
-		Key:                 key,
-		Sender:              "*",
-		IsSenderRegex:       false,
-		SMSFilter:           "",
-		URL:                 webhookURL,
-		SimSlot:             0,
-		Template:            template,
-		Headers:             `{"User-agent":"SMS Forwarder App"}`,
-		RetriesNumber:       10,
-		IgnoreSSL:           false,
-		ChunkedMode:         false,
-		IsSMSEnabled:        true,
-		SignHMACSHA256:      false,
+		Key:                  key,
+		Sender:               "*",
+		IsSenderRegex:        false,
+		SMSFilter:            "",
+		URL:                  webhookURL,
+		SimSlot:              0,
+		Template:             template,
+		Headers:              headers,
+		RetriesNumber:        10,
+		IgnoreSSL:            false,
+		ChunkedMode:          false,
+		IsSMSEnabled:         true,
+		SignHMACSHA256:       false,
 		SignHMACSHA256Secret: "",
-		StoreFailed:         true,
-		LocalMode:           false,
+		StoreFailed:          true,
+		LocalMode:            false,
 	}
 }
